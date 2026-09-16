@@ -23,7 +23,7 @@ supabase = init_connection()
 # CONFIGURAÇÃO DA PÁGINA E ESTÉTICA HIGH-END
 # ==========================================
 st.set_page_config(
-    page_title="ERP BM Make Up Store",
+    page_title="ERP Bmake Up Store",
     page_icon="🛍️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -188,7 +188,7 @@ def render_tabela_saas(df, colunas):
 # ==========================================
 # BARRA LATERAL (MENU SAAS)
 # ==========================================
-st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 18px; font-weight: 700; margin-top: 10px;'>ERP BM Make Up</h3>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 18px; font-weight: 700; margin-top: 10px;'>ERP Bmake Up</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 st.sidebar.markdown("<p style='font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;'>Navegação Principal</p>", unsafe_allow_html=True)
 
