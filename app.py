@@ -4,7 +4,9 @@ from datetime import datetime, timedelta
 import os
 from supabase import create_client, Client
 
-# Configuração da Conexão com o Supabase
+# ==========================================
+# CONFIGURAÇÃO DE ACESSO AO SUPABASE
+# ==========================================
 SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInI1cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwMzU5ODEsImV4cCI6MjA1NjYxMTk4MX0.RuBIOfGCS7DxhfRNGLtRogLmhNmUhLb7GMWF-8bZSI6ImFub24iLCJPY3A3MiwzMDIzM01Myv4cCI6MjNlNW1TMMyNhQ"
 
@@ -17,7 +19,9 @@ def init_connection():
 
 supabase = init_connection()
 
-# 1. Configuração da Página e Estética High-End
+# ==========================================
+# CONFIGURAÇÃO DA PÁGINA E ESTÉTICA HIGH-END
+# ==========================================
 st.set_page_config(
     page_title="ERP BM Make Up Store",
     page_icon="🛍️",
@@ -40,42 +44,34 @@ st.markdown("""
     [data-testid="stImage"] img { mix-blend-mode: multiply; border-radius: 8px; }
     [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; padding-top: 1rem; }
     
-    /* Estilização Avançada do Menu Lateral (Estilo SaaS Tabs) */
-    div.row-widget.stRadio > label { font-weight: 700; color: #1e293b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
-    div.row-widget.stRadio [role="radiogroup"] { gap: 10px; }
-    div.row-widget.stRadio input[type="radio"] { display: none !important; }
-    div.row-widget.stRadio label {
-        background-color: #ffffff !important;
+    /* Estilização Avançada dos Botões da Sidebar (Padrão SaaS) */
+    [data-testid="stSidebar"] .stButton>button {
+        background: #ffffff !important;
+        color: #475569 !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 10px !important;
-        padding: 12px 16px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.01);
-        transition: all 0.25s ease-in-out;
-        cursor: pointer;
-        width: 100%;
+        padding: 0.7rem 1rem !important;
+        font-weight: 600 !important;
+        text-align: left !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.01) !important;
+        transition: all 0.2s ease-in-out;
+        width: 100% !important;
+        margin-bottom: 6px;
     }
-    div.row-widget.stRadio label:hover {
-        background-color: #fdf2f8 !important;
+    [data-testid="stSidebar"] .stButton>button:hover {
+        background: #fdf2f8 !important;
+        color: #d91c84 !important;
         border-color: #fbcfe8 !important;
         transform: translateX(4px);
     }
-    div.row-widget.stRadio label p {
-        font-size: 14px !important;
-        font-weight: 600 !important;
-        color: #475569 !important;
-        margin: 0 !important;
-    }
-    div.row-widget.stRadio label:hover p {
-        color: #d91c84 !important;
-    }
     
-    /* Botões elegantes */
-    .stButton>button {
+    /* Botões de Ação Principais (Ex: Salvar, Confirmar) */
+    .main .stButton>button {
         background: linear-gradient(135deg, #d91c84 0%, #b01269 100%);
         color: white; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 600; border: none;
         box-shadow: 0 4px 12px rgba(217, 28, 132, 0.2); transition: all 0.3s ease;
     }
-    .stButton>button:hover {
+    .main .stButton>button:hover {
         background: linear-gradient(135deg, #b01269 0%, #8c0d52 100%);
         box-shadow: 0 6px 15px rgba(217, 28, 132, 0.35);
     }
@@ -108,7 +104,9 @@ if caminho_oficial_logo:
     except:
         pass
 
-# 2. Sistema de Autenticação Persistente com Query Params
+# ==========================================
+# SISTEMA DE AUTENTICAÇÃO PERSISTENTE
+# ==========================================
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 
@@ -139,7 +137,9 @@ if not st.session_state.autenticado:
                     st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# Funções de Leitura Protegidas
+# ==========================================
+# FUNÇÕES DE BANCO DE DADOS
+# ==========================================
 def carregar_produtos():
     if not supabase:
         return pd.DataFrame(columns=["sku", "produto", "custo", "preco_venda", "taxa_ml", "frete_medio", "estoque"])
@@ -167,7 +167,7 @@ def carregar_vendas():
         st.warning(f"Aviso de conexão com o banco de vendas: {e}")
     return pd.DataFrame(columns=["id", "data", "sku", "produto", "qtd", "pagamento", "preco_unit", "custo_unit", "taxa_ml", "frete"])
 
-# Componente de Tabela SaaS de Alto Padrão (Substitui o visual de Excel)
+# Renderizador de Tabelas SaaS de Alto Padrão
 def render_tabela_saas(df, colunas):
     if df.empty:
         st.info("Nenhum registro encontrado.")
@@ -176,16 +176,14 @@ def render_tabela_saas(df, colunas):
     html_code = "<div style='background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); overflow: hidden; margin-top: 10px;'>"
     html_code += "<table style='width: 100%; border-collapse: collapse; font-family: \"Plus Jakarta Sans\", sans-serif; font-size: 14px; text-align: left;'>"
     
-    # Cabeçalho corporativo
     html_code += "<tr style='background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em;'>"
     for col in colunas:
         html_code += f"<th style='padding: 14px 18px;'>{col}</th>"
     html_code += "</tr>"
     
-    # Linhas de dados estilizadas
     for idx, row in df.iterrows():
         bg_color = "#ffffff" if idx % 2 == 0 else "#fafafa"
-        html_code += f"<tr style='background-color: {bg_color}; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;' onmouseover=\"this.style.backgroundColor='#fdf2f8'\" onmouseout=\"this.style.backgroundColor='{bg_color}'\">"
+        html_code += f"<tr style='background-color: {bg_color}; border-bottom: 1px solid #f1f5f9;'>"
         for col in colunas:
             val = row[col] if col in row else ""
             html_code += f"<td style='padding: 14px 18px; color: #334155;'>{val}</td>"
@@ -194,16 +192,44 @@ def render_tabela_saas(df, colunas):
     html_code += "</table></div>"
     st.markdown(html_code, unsafe_allow_html=True)
 
-# 4. Barra Lateral de Navegação
-st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 20px; font-weight: 700; margin-top: 10px;'>ERP BM Make Up</h3>", unsafe_allow_html=True)
+# ==========================================
+# BARRA LATERAL (MENU SAAS COM BOTÕES)
+# ==========================================
+st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 18px; font-weight: 700; margin-top: 10px;'>ERP BM Make Up</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
-menu = st.sidebar.radio("Navegação Principal", ["Dashboard Executivo", "Cadastrar / Listar Produtos", "Registrar Venda", "Simulador de Lucro por Venda", "Controle de Estoque"])
+st.sidebar.markdown("<p style='font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;'>Navegação Principal</p>", unsafe_allow_html=True)
+
+if 'menu_atual' not in st.session_state:
+    st.session_state.menu_atual = "Dashboard Executivo"
+
+if st.sidebar.button("📊  Dashboard Executivo", use_container_width=True):
+    st.session_state.menu_atual = "Dashboard Executivo"
+    st.rerun()
+
+if st.sidebar.button("📦  Cadastrar / Listar Produtos", use_container_width=True):
+    st.session_state.menu_atual = "Cadastrar / Listar Produtos"
+    st.rerun()
+
+if st.sidebar.button("🛒  Registrar Venda", use_container_width=True):
+    st.session_state.menu_atual = "Registrar Venda"
+    st.rerun()
+
+if st.sidebar.button("💡  Simulador de Lucro", use_container_width=True):
+    st.session_state.menu_atual = "Simulador de Lucro por Venda"
+    st.rerun()
+
+if st.sidebar.button("📋  Controle de Estoque", use_container_width=True):
+    st.session_state.menu_atual = "Controle de Estoque"
+    st.rerun()
+
 st.sidebar.markdown("---")
-if st.sidebar.button("Sair / Logout", use_container_width=True):
+if st.sidebar.button("🚪  Sair / Logout", use_container_width=True):
     st.session_state.autenticado = False
     if "auth" in st.query_params:
         del st.query_params["auth"]
     st.rerun()
+
+menu = st.session_state.menu_atual
 
 def exibir_headline(titulo_pagina, subtitulo):
     col_logo, col_texto = st.columns([1, 8], vertical_alignment="center")
@@ -211,7 +237,7 @@ def exibir_headline(titulo_pagina, subtitulo):
         if caminho_oficial_logo:
             st.image(caminho_oficial_logo, use_container_width=True)
     with col_texto:
-        st.markdown("<span style='color: #d91c84; font-weight: bold; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase;'>ERP BM MAKE UP STORE</span>", unsafe_allow_html=True)
+        st.markdown("<span style='color: #d91c84; font-weight: bold; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;'>ERP BM MAKE UP STORE</span>", unsafe_allow_html=True)
         st.title(titulo_pagina)
         st.markdown(f"<p style='color: #64748b; font-size: 15px; margin-top: -5px;'>{subtitulo}</p>", unsafe_allow_html=True)
     st.markdown("---")
@@ -219,10 +245,12 @@ def exibir_headline(titulo_pagina, subtitulo):
 def formatar_moeda(valor):
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-# 5. Módulos do Sistema
 df_produtos = carregar_produtos()
 df_vendas = carregar_vendas()
 
+# ==========================================
+# MÓDULOS DO SISTEMA
+# ==========================================
 if menu == "Dashboard Executivo":
     exibir_headline("Dashboard Executivo", "Desempenho financeiro, faturamento e lucratividade da loja em tempo real.")
     
@@ -296,7 +324,6 @@ if menu == "Dashboard Executivo":
         df_exibicao["Faturamento"] = (df_exibicao["qtd"] * df_exibicao["preco_unit"]).apply(formatar_moeda)
         df_exibicao["Lucro Líquido"] = ((df_exibicao["qtd"] * df_exibicao["preco_unit"]) - ((df_exibicao["qtd"] * df_exibicao["custo_unit"]) + (df_exibicao["qtd"] * df_exibicao["taxa_ml"]) + (df_exibicao["qtd"] * df_exibicao["frete"]))).apply(formatar_moeda)
         
-        # Renderizando com a nossa Tabela SaaS de alta estética
         render_tabela_saas(df_exibicao, ["Data", "produto", "qtd", "pagamento", "Faturamento", "Lucro Líquido"])
     else:
         st.info("Nenhuma venda registrada neste período.")
@@ -333,7 +360,7 @@ elif menu == "Cadastrar / Listar Produtos":
 
     st.subheader("Catálogo de Produtos")
     if not df_produtos.empty:
-        st.dataframe(df_produtos, use_container_width=True)
+        render_tabela_saas(df_produtos, ["sku", "produto", "custo", "preco_venda", "taxa_ml", "frete_medio", "estoque"])
         
         with st.expander("🗑️ Excluir Produto por SKU"):
             sku_para_excluir = st.selectbox("Selecione o SKU para remover", df_produtos["sku"].tolist())
