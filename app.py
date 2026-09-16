@@ -5,7 +5,7 @@ import os
 from supabase import create_client, Client
 
 # Configuração da Conexão com o Supabase (Substitua pelos seus dados)
-SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co/rest/v1/"
+SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MjUzMjQsImV4cCI6MjEwNTEwMTMyNH0.RUbIOfGCS7DxhfRNGLtRogLmhNmjUhLb7GMWF-2jZec"
 
 @st.cache_resource
