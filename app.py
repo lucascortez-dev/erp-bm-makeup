@@ -2,13 +2,19 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import os
+import requests
 from supabase import create_client, Client
 
 # ==========================================
-# CONFIGURAÇÃO DE ACESSO AO SUPABASE
+# LENDO CHAVES DO COFRE (SECRETS)
 # ==========================================
-SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MjUzMjQsImV4cCI6MjEwNTEwMTMyNH0.RUbIOfGCS7DxhfRNGLtRogLmhNmjUhLb7GMWF-2jZec"
+try:
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+except Exception:
+    # Caso as secrets não estejam configuradas, ele avisa (nunca deixe a chave real exposta aqui!)
+    SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co"
+    SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MjUzMjQsImV4cCI6MjEwNTEwMTMyNH0.RUbIOfGCS7DxhfRNGLtRogLmhNmjUhLb7GMWF-2jZec" 
 
 @st.cache_resource
 def init_connection():
@@ -22,12 +28,7 @@ supabase = init_connection()
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA E ESTÉTICA HIGH-END
 # ==========================================
-st.set_page_config(
-    page_title="ERP Bmake Up Store",
-    page_icon="🛍️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="ERP BM Make Up Store", page_icon="🛍️", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
@@ -35,46 +36,38 @@ st.markdown("""
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     .stApp { background-color: #f8fafc; }
     
-    #MainMenu {visibility: hidden !important;}
-    footer {visibility: hidden !important;}
-    .stDeployButton {display: none !important;}
+    /* BLOQUEIO ABSOLUTO DE QUALQUER RODAPÉ, MARCA D'ÁGUA OU SELO FLUTUANTE */
+    #MainMenu, footer, .stDeployButton {display: none !important; visibility: hidden !important;}
+    div[data-testid="stStatusWidget"] {display: none !important; visibility: hidden !important;}
+    .viewerBadge_container__1QSob, div.viewerBadge_link__1S137, ._profileContainer_gzau3_1, iframe[src*="streamlit"] {
+        display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important;
+    }
+    div[class*="viewerBadge"], footer[class*="viewerBadge"] { display: none !important; }
     
     [data-testid="stImage"] img { mix-blend-mode: multiply; border-radius: 8px; }
     [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; padding-top: 1rem; }
     
     [data-testid="stSidebar"] .stButton>button {
-        background: #ffffff !important;
-        color: #475569 !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 10px !important;
-        padding: 0.7rem 1rem !important;
-        font-weight: 600 !important;
-        text-align: left !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.01) !important;
-        transition: all 0.2s ease-in-out;
-        width: 100% !important;
-        margin-bottom: 6px;
+        background: #ffffff !important; color: #475569 !important; border: 1px solid #e2e8f0 !important;
+        border-radius: 10px !important; padding: 0.7rem 1rem !important; font-weight: 600 !important;
+        text-align: left !important; box-shadow: 0 1px 2px rgba(0,0,0,0.01) !important;
+        transition: all 0.2s ease-in-out; width: 100% !important; margin-bottom: 6px;
     }
     [data-testid="stSidebar"] .stButton>button:hover {
-        background: #fdf2f8 !important;
-        color: #d91c84 !important;
-        border-color: #fbcfe8 !important;
-        transform: translateX(4px);
+        background: #fdf2f8 !important; color: #d91c84 !important; border-color: #fbcfe8 !important; transform: translateX(4px);
     }
     
     .main .stButton>button {
-        background: linear-gradient(135deg, #d91c84 0%, #b01269 100%);
-        color: white; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 600; border: none;
-        box-shadow: 0 4px 12px rgba(217, 28, 132, 0.2); transition: all 0.3s ease;
+        background: linear-gradient(135deg, #d91c84 0%, #b01269 100%); color: white; border-radius: 8px; 
+        padding: 0.6rem 1.2rem; font-weight: 600; border: none; box-shadow: 0 4px 12px rgba(217, 28, 132, 0.2); 
+        transition: all 0.3s ease;
     }
     .main .stButton>button:hover {
-        background: linear-gradient(135deg, #b01269 0%, #8c0d52 100%);
-        box-shadow: 0 6px 15px rgba(217, 28, 132, 0.35);
+        background: linear-gradient(135deg, #b01269 0%, #8c0d52 100%); box-shadow: 0 6px 15px rgba(217, 28, 132, 0.35);
     }
     
     div[data-testid="stMetric"] {
-        background-color: #ffffff; border: 1px solid #e2e8f0; padding: 20px;
-        border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        background-color: #ffffff; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
     div[data-testid="stMetric"] label { color: #64748b !important; font-weight: 500; }
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] { color: #d91c84 !important; font-weight: 700; }
@@ -87,16 +80,13 @@ def encontrar_caminho_logo():
     pasta_atual = os.path.dirname(os.path.abspath(__file__))
     for arquivo in ["logo.png", "logo.png.png", "logo.jpg", "logo.jpeg"]:
         caminho = os.path.join(pasta_atual, arquivo)
-        if os.path.exists(caminho):
-            return caminho
+        if os.path.exists(caminho): return caminho
     return None
 
 caminho_oficial_logo = encontrar_caminho_logo()
 if caminho_oficial_logo:
-    try:
-        st.logo(caminho_oficial_logo)
-    except:
-        pass
+    try: st.logo(caminho_oficial_logo)
+    except: pass
 
 # ==========================================
 # SISTEMA DE AUTENTICAÇÃO PERSISTENTE
@@ -111,18 +101,14 @@ if not st.session_state.autenticado:
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        if caminho_oficial_logo:
-            st.image(caminho_oficial_logo, width=180)
-            
-        st.markdown("<h2 style='color: #d91c84;'>ERP Bmake Up</h2>", unsafe_allow_html=True)
+        if caminho_oficial_logo: st.image(caminho_oficial_logo, width=180)
+        st.markdown("<h2 style='color: #d91c84;'>ERP BM Make Up</h2>", unsafe_allow_html=True)
         st.markdown("<h3 style='font-size: 18px; margin-top: 5px; margin-bottom: 20px; color: #64748b;'>Acesso Restrito ao Sistema</h3>", unsafe_allow_html=True)
         
         with st.form("form_login"):
             usuario = st.text_input("Usuário")
             senha = st.text_input("Senha", type="password")
-            botao_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
-            
-            if botao_login:
+            if st.form_submit_button("Entrar no Sistema", use_container_width=True):
                 if usuario == "admin" and senha == "bmstore2026":
                     st.session_state.autenticado = True
                     st.query_params["auth"] = "true"
@@ -140,8 +126,7 @@ def carregar_produtos():
     try:
         response = supabase.table("produtos").select("*").execute()
         data = response.data
-        if data:
-            return pd.DataFrame(data)
+        if data: return pd.DataFrame(data)
     except Exception as e:
         st.warning(f"Aviso de conexão com o banco de produtos: {e}")
     return pd.DataFrame(columns=["sku", "produto", "custo", "preco_venda", "taxa_ml", "frete_medio", "estoque"])
@@ -165,61 +150,43 @@ def render_tabela_saas(df, colunas):
     if df.empty:
         st.info("Nenhum registro encontrado.")
         return
-    
     html_code = "<div style='background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); overflow: hidden; margin-top: 10px;'>"
-    html_code += "<table style='width: 100%; border-collapse: collapse; font-family: \"Plus Jakarta Sans\", sans-serif; font-size: 14px; text-align: left;'>"
-    
-    html_code += "<tr style='background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em;'>"
-    for col in colunas:
-        html_code += f"<th style='padding: 14px 18px;'>{col}</th>"
+    html_code += "<table style='width: 100%; border-collapse: collapse; font-family: \"Plus Jakarta Sans\", sans-serif; font-size: 14px; text-align: left;'><tr style='background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em;'>"
+    for col in colunas: html_code += f"<th style='padding: 14px 18px;'>{col}</th>"
     html_code += "</tr>"
-    
     for idx, row in df.iterrows():
         bg_color = "#ffffff" if idx % 2 == 0 else "#fafafa"
         html_code += f"<tr style='background-color: {bg_color}; border-bottom: 1px solid #f1f5f9;'>"
-        for col in colunas:
-            val = row[col] if col in row else ""
-            html_code += f"<td style='padding: 14px 18px; color: #334155;'>{val}</td>"
+        for col in colunas: html_code += f"<td style='padding: 14px 18px; color: #334155;'>{row[col] if col in row else ''}</td>"
         html_code += "</tr>"
-        
     html_code += "</table></div>"
     st.markdown(html_code, unsafe_allow_html=True)
 
 # ==========================================
 # BARRA LATERAL (MENU SAAS)
 # ==========================================
-st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 18px; font-weight: 700; margin-top: 10px;'>ERP Bmake Up</h3>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 18px; font-weight: 700; margin-top: 10px;'>ERP BM Make Up</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 st.sidebar.markdown("<p style='font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;'>Navegação Principal</p>", unsafe_allow_html=True)
 
 if 'menu_atual' not in st.session_state:
     st.session_state.menu_atual = "Dashboard Executivo"
 
-if st.sidebar.button("📊  Dashboard Executivo", use_container_width=True):
-    st.session_state.menu_atual = "Dashboard Executivo"
-    st.rerun()
+if st.sidebar.button("📊  Dashboard Executivo", use_container_width=True): st.session_state.menu_atual = "Dashboard Executivo"; st.rerun()
+if st.sidebar.button("📦  Gerenciar Produtos", use_container_width=True): st.session_state.menu_atual = "Cadastrar / Listar Produtos"; st.rerun()
+if st.sidebar.button("🛒  Registrar Venda", use_container_width=True): st.session_state.menu_atual = "Registrar Venda"; st.rerun()
+if st.sidebar.button("💡  Simulador de Lucro", use_container_width=True): st.session_state.menu_atual = "Simulador de Lucro por Venda"; st.rerun()
+if st.sidebar.button("📋  Controle de Estoque", use_container_width=True): st.session_state.menu_atual = "Controle de Estoque"; st.rerun()
 
-if st.sidebar.button("📦  Cadastrar / Listar Produtos", use_container_width=True):
-    st.session_state.menu_atual = "Cadastrar / Listar Produtos"
-    st.rerun()
-
-if st.sidebar.button("🛒  Registrar Venda", use_container_width=True):
-    st.session_state.menu_atual = "Registrar Venda"
-    st.rerun()
-
-if st.sidebar.button("💡  Simulador de Lucro", use_container_width=True):
-    st.session_state.menu_atual = "Simulador de Lucro por Venda"
-    st.rerun()
-
-if st.sidebar.button("📋  Controle de Estoque", use_container_width=True):
-    st.session_state.menu_atual = "Controle de Estoque"
-    st.rerun()
+# Nova seção para a Integração do Mercado Livre
+st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<p style='font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;'>Configurações</p>", unsafe_allow_html=True)
+if st.sidebar.button("🔌  Integração Mercado Livre", use_container_width=True): st.session_state.menu_atual = "Integracao ML"; st.rerun()
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪  Sair / Logout", use_container_width=True):
     st.session_state.autenticado = False
-    if "auth" in st.query_params:
-        del st.query_params["auth"]
+    if "auth" in st.query_params: del st.query_params["auth"]
     st.rerun()
 
 menu = st.session_state.menu_atual
@@ -227,10 +194,9 @@ menu = st.session_state.menu_atual
 def exibir_headline(titulo_pagina, subtitulo):
     col_logo, col_texto = st.columns([1, 8], vertical_alignment="center")
     with col_logo:
-        if caminho_oficial_logo:
-            st.image(caminho_oficial_logo, use_container_width=True)
+        if caminho_oficial_logo: st.image(caminho_oficial_logo, use_container_width=True)
     with col_texto:
-        st.markdown("<span style='color: #d91c84; font-weight: bold; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;'>ERP BMAKE UP STORE</span>", unsafe_allow_html=True)
+        st.markdown("<span style='color: #d91c84; font-weight: bold; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;'>ERP BM MAKE UP STORE</span>", unsafe_allow_html=True)
         st.title(titulo_pagina)
         st.markdown(f"<p style='color: #64748b; font-size: 15px; margin-top: -5px;'>{subtitulo}</p>", unsafe_allow_html=True)
     st.markdown("---")
@@ -374,7 +340,6 @@ elif menu == "Registrar Venda":
         st.warning("Cadastre produtos primeiro na aba de Gerenciamento.")
     else:
         with st.expander("🛒 Nova Venda", expanded=True):
-            # Seleção de produto fora do formulário para capturar dinamicamente o preço base sugerido
             prod_vendido = st.selectbox("Escolha o Produto", df_produtos["produto"].tolist())
             p_info = df_produtos[df_produtos["produto"] == prod_vendido].iloc[0]
             preco_sugerido = float(p_info["preco_venda"])
@@ -383,7 +348,6 @@ elif menu == "Registrar Venda":
                 col1, col2 = st.columns(2)
                 with col1:
                     qtd_vendida = st.number_input("Quantidade Vendida", min_value=1, value=1, step=1)
-                    # Campo de preço unitário editável (suporta preço variável do ML ou manual)
                     preco_unit_custom = st.number_input("Preço Unitário de Venda (R$)", value=preco_sugerido, min_value=0.0, format="%.2f")
                 with col2:
                     data_venda = st.date_input("Data da Venda", datetime.now())
@@ -396,7 +360,7 @@ elif menu == "Registrar Venda":
                         "produto": prod_vendido,
                         "qtd": int(qtd_vendida),
                         "pagamento": forma_pgto,
-                        "preco_unit": float(preco_unit_custom), # Salva o preço real informado (variável)
+                        "preco_unit": float(preco_unit_custom),
                         "custo_unit": float(p_info["custo"]),
                         "taxa_ml": float(preco_unit_custom * (p_info["taxa_ml"] / 100)) if forma_pgto == "Mercado Livre" else 0.0,
                         "frete": float(p_info["frete_medio"]) if forma_pgto == "Mercado Livre" else 0.0
@@ -470,3 +434,78 @@ elif menu == "Controle de Estoque":
             render_tabela_saas(baixo_estoque, ["sku", "produto", "estoque"])
     else:
         st.info("Estoque vazio.")
+
+# ==========================================
+# NOVA ABA: INTEGRAÇÃO MERCADO LIVRE
+# ==========================================
+elif menu == "Integracao ML":
+    exibir_headline("Integração Mercado Livre", "Conecte sua conta no modo leitura (espelho) com segurança oficial.")
+    
+    try:
+        ML_APP_ID = st.secrets["ML_APP_ID"]
+        ML_CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
+        ML_REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
+    except Exception:
+        st.error("⚠️ As chaves do Mercado Livre (ML_APP_ID, ML_CLIENT_SECRET, ML_REDIRECT_URI) não foram encontradas no Cofre do Streamlit (Secrets). Por favor, configure-as antes de prosseguir.")
+        st.stop()
+
+    # Capturar o Código de Autorização retornado na URL após login no Mercado Livre
+    if "code" in st.query_params:
+        auth_code = st.query_params["code"]
+        st.info("Processando autorização segura com o Mercado Livre...")
+        
+        url_token = "https://api.mercadolibre.com/oauth/token"
+        payload = {
+            "grant_type": "authorization_code",
+            "client_id": ML_APP_ID,
+            "client_secret": ML_CLIENT_SECRET,
+            "code": auth_code,
+            "redirect_uri": ML_REDIRECT_URI
+        }
+        headers = {"accept": "application/json", "content-type": "application/x-www-form-urlencoded"}
+        
+        try:
+            resposta = requests.post(url_token, data=payload, headers=headers)
+            if resposta.status_code == 200:
+                tokens = resposta.json()
+                # Salvar os tokens gerados no banco de dados
+                supabase.table("ml_tokens").delete().neq("access_token", "dummy").execute()
+                supabase.table("ml_tokens").insert({"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"]}).execute()
+                
+                # Limpar a URL para não refazer a requisição ao dar F5
+                del st.query_params["code"]
+                st.success("✅ Conexão estabelecida com sucesso! O token foi salvo com segurança no banco de dados.")
+                st.rerun()
+            else:
+                st.error(f"Falha na autorização. Erro: {resposta.text}")
+        except Exception as e:
+            st.error(f"Erro de conexão com a API: {e}")
+
+    # Verificar no Supabase se já existe uma conexão ativa
+    try:
+        resp_db = supabase.table("ml_tokens").select("*").execute()
+        tem_token = len(resp_db.data) > 0
+    except:
+        tem_token = False
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Interface Principal da Aba de Integração
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        if tem_token:
+            st.success("🟢 STATUS: Conectado ao Mercado Livre.")
+            st.markdown("O seu ERP possui credencial de leitura ativa. O sistema agora está pronto para consultar e espelhar vendas e estoques reais do Mercado Livre.")
+            
+            if st.button("Desconectar Conta (Revogar Acesso)", type="secondary"):
+                supabase.table("ml_tokens").delete().neq("access_token", "dummy").execute()
+                st.warning("Conexão revogada com sucesso.")
+                st.rerun()
+        else:
+            st.warning("🔴 STATUS: Desconectado. Nenhuma credencial encontrada.")
+            st.markdown("Para iniciar, clique no botão abaixo. Você será levado ao Mercado Livre para aprovar a permissão de leitura, e retornará automaticamente para o seu ERP.")
+            
+            link_auth = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={ML_APP_ID}&redirect_uri={ML_REDIRECT_URI}"
+            
+            # Botão visual de link que redireciona para a página do ML
+            st.markdown(f'<a href="{link_auth}" target="_self" style="display: inline-block; padding: 12px 24px; background-color: #ffe600; color: #2d3277; text-decoration: none; border-radius: 8px; font-weight: bold; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 15px; transition: 0.2s;">Conectar Conta do Mercado Livre</a>', unsafe_allow_html=True)
