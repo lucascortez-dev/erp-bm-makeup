@@ -2,6 +2,17 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import os
+from supabase import create_client, Client
+
+# Configuração da Conexão com o Supabase (Substitua pelos seus dados)
+SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co/rest/v1/"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MjUzMjQsImV4cCI6MjEwNTEwMTMyNH0.RUbIOfGCS7DxhfRNGLtRogLmhNmjUhLb7GMWF-2jZec"
+
+@st.cache_resource
+def init_connection():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+supabase: Client = init_connection()
 
 # 1. Configuração da Página e Estética Enterprise
 st.set_page_config(
@@ -11,25 +22,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada (Design System)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     .stApp { background-color: #f8fafc; }
-    
-    /* Integração da imagem */
-    [data-testid="stImage"] img {
-        mix-blend-mode: multiply;
-        border-radius: 8px;
-    }
-    
+    [data-testid="stImage"] img { mix-blend-mode: multiply; border-radius: 8px; }
     [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
-    
-    /* Ajuste visual do menu lateral (Radio buttons) */
     div.row-widget.stRadio > div { background-color: #ffffff; border-radius: 8px; padding: 10px; }
-    
-    /* Botões elegantes */
     .stButton>button {
         background: linear-gradient(135deg, #d91c84 0%, #b01269 100%);
         color: white; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 600; border: none;
@@ -39,8 +39,6 @@ st.markdown("""
         background: linear-gradient(135deg, #b01269 0%, #8c0d52 100%);
         box-shadow: 0 6px 15px rgba(217, 28, 132, 0.35);
     }
-    
-    /* Cards de Métricas */
     div[data-testid="stMetric"] {
         background-color: #ffffff; border: 1px solid #e2e8f0; padding: 20px;
         border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
@@ -62,7 +60,6 @@ def encontrar_caminho_logo():
     return None
 
 caminho_oficial_logo = encontrar_caminho_logo()
-
 if caminho_oficial_logo:
     try:
         st.logo(caminho_oficial_logo)
@@ -96,27 +93,35 @@ if not st.session_state.autenticado:
                     st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# 3. Inicialização de Dados Limpos (Com Tratamento de Estruturas Novas)
-if 'produtos' not in st.session_state:
-    st.session_state.produtos = pd.DataFrame(columns=["SKU", "Produto", "Custo (R$)", "Preço Venda (R$)", "Taxa ML (%)", "Frete Médio (R$)", "Estoque"])
+# Funções de Leitura e Escrita Direta no Supabase
+def carregar_produtos():
+    response = supabase.table("produtos").select("*").execute()
+    data = response.data
+    if data:
+        return pd.DataFrame(data)
+    else:
+        return pd.DataFrame(columns=["sku", "produto", "custo", "preco_venda", "taxa_ml", "frete_medio", "estoque"])
 
-if 'vendas' not in st.session_state:
-    st.session_state.vendas = pd.DataFrame(columns=["Data", "SKU", "Produto", "Qtd", "Pagamento", "Preço Unit", "Custo Unit", "Taxa ML", "Frete"])
-elif "Pagamento" not in st.session_state.vendas.columns:
-    # Atualização caso o banco de dados antigo ainda esteja na sessão
-    st.session_state.vendas["Pagamento"] = "Não informado"
+def carregar_vendas():
+    response = supabase.table("vendas").select("*").execute()
+    data = response.data
+    if data:
+        df = pd.DataFrame(data)
+        if not df.empty and "data" in df.columns:
+            df["data"] = pd.to_datetime(df["data"])
+        return df
+    else:
+        return pd.DataFrame(columns=["id", "data", "sku", "produto", "qtd", "pagamento", "preco_unit", "custo_unit", "taxa_ml", "frete"])
 
-# 4. Barra Lateral de Navegação (Agora com st.radio para exibir tudo)
+# 4. Barra Lateral de Navegação
 st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 22px; margin-top: 10px;'>ERP BM Make Up</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
-# Usando RADIO em vez de SELECTBOX para deixar as opções visíveis
 menu = st.sidebar.radio("Navegação Principal", ["Dashboard Executivo", "Cadastrar / Listar Produtos", "Registrar Venda", "Simulador de Lucro por Venda", "Controle de Estoque"])
 st.sidebar.markdown("---")
 if st.sidebar.button("Sair / Logout", use_container_width=True):
     st.session_state.autenticado = False
     st.rerun()
 
-# Função auxiliar para a Headline
 def exibir_headline(titulo_pagina, subtitulo):
     col_logo, col_texto = st.columns([1, 8], vertical_alignment="center")
     with col_logo:
@@ -128,11 +133,13 @@ def exibir_headline(titulo_pagina, subtitulo):
         st.markdown(f"<p style='color: #64748b; font-size: 16px; margin-top: -10px;'>{subtitulo}</p>", unsafe_allow_html=True)
     st.markdown("---")
 
-# Função auxiliar para formatação de moeda BRL
 def formatar_moeda(valor):
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 # 5. Módulos do Sistema
+df_produtos = carregar_produtos()
+df_vendas = carregar_vendas()
+
 if menu == "Dashboard Executivo":
     exibir_headline("Dashboard Executivo", "Desempenho financeiro, faturamento e lucratividade da loja.")
     
@@ -159,32 +166,30 @@ if menu == "Dashboard Executivo":
     data_fim_anterior = data_inicio - timedelta(seconds=1)
     data_inicio_anterior = data_fim_anterior - timedelta(days=dias_delta)
 
-    df_vendas = st.session_state.vendas
     if not df_vendas.empty:
-        df_vendas["Data"] = pd.to_datetime(df_vendas["Data"])
-        df_atual = df_vendas[(df_vendas["Data"] >= data_inicio) & (df_vendas["Data"] <= hoje)]
-        df_ant = df_vendas[(df_vendas["Data"] >= data_inicio_anterior) & (df_vendas["Data"] <= data_fim_anterior)]
+        df_atual = df_vendas[(df_vendas["data"] >= data_inicio) & (df_vendas["data"] <= hoje)]
+        df_ant = df_vendas[(df_vendas["data"] >= data_inicio_anterior) & (df_vendas["data"] <= data_fim_anterior)]
     else:
-        df_atual = pd.DataFrame(columns=["Data", "SKU", "Qtd", "Pagamento", "Preço Unit", "Custo Unit", "Taxa ML", "Frete"])
-        df_ant = pd.DataFrame(columns=["Data", "SKU", "Qtd", "Pagamento", "Preço Unit", "Custo Unit", "Taxa ML", "Frete"])
+        df_atual = pd.DataFrame(columns=["data", "sku", "qtd", "pagamento", "preco_unit", "custo_unit", "taxa_ml", "frete"])
+        df_ant = pd.DataFrame(columns=["data", "sku", "qtd", "pagamento", "preco_unit", "custo_unit", "taxa_ml", "frete"])
 
-    fat_atual = (df_atual["Qtd"] * df_atual["Preço Unit"]).sum() if not df_atual.empty else 0.0
-    custos_atual = ((df_atual["Qtd"] * df_atual["Custo Unit"]) + (df_atual["Qtd"] * df_atual["Taxa ML"]) + (df_atual["Qtd"] * df_atual["Frete"])).sum() if not df_atual.empty else 0.0
+    fat_atual = (df_atual["qtd"] * df_atual["preco_unit"]).sum() if not df_atual.empty else 0.0
+    custos_atual = ((df_atual["qtd"] * df_atual["custo_unit"]) + (df_atual["qtd"] * df_atual["taxa_ml"]) + (df_atual["qtd"] * df_atual["frete"])).sum() if not df_atual.empty else 0.0
     lucro_atual = fat_atual - custos_atual
     margem_atual = (lucro_atual / fat_atual * 100) if fat_atual > 0 else 0.0
-    vendas_atual = df_atual['Qtd'].sum() if not df_atual.empty else 0
-    skus_atual = len(st.session_state.produtos)
+    vendas_atual = df_atual['qtd'].sum() if not df_atual.empty else 0
+    skus_atual = len(df_produtos)
 
-    fat_ant = (df_ant["Qtd"] * df_ant["Preço Unit"]).sum() if not df_ant.empty else 0.0
-    custos_ant = ((df_ant["Qtd"] * df_ant["Custo Unit"]) + (df_ant["Qtd"] * df_ant["Taxa ML"]) + (df_ant["Qtd"] * df_ant["Frete"])).sum() if not df_ant.empty else 0.0
+    fat_ant = (df_ant["qtd"] * df_ant["preco_unit"]).sum() if not df_ant.empty else 0.0
+    custos_ant = ((df_ant["qtd"] * df_ant["custo_unit"]) + (df_ant["qtd"] * df_ant["taxa_ml"]) + (df_ant["qtd"] * df_ant["frete"])).sum() if not df_ant.empty else 0.0
     lucro_ant = fat_ant - custos_ant
     margem_ant = (lucro_ant / fat_ant * 100) if fat_ant > 0 else 0.0
-    vendas_ant = df_ant['Qtd'].sum() if not df_ant.empty else 0
+    vendas_ant = df_ant['qtd'].sum() if not df_ant.empty else 0
 
-    def calc_delta(atual, anterior, format_pct=True):
+    def calc_delta(atual, anterior):
         if anterior == 0: return f"{100.0:.1f}%" if atual > 0 else "0.0%"
         var = ((atual - anterior) / anterior) * 100
-        return f"{var:.1f}%" if format_pct else var
+        return f"{var:.1f}%"
 
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -204,18 +209,16 @@ if menu == "Dashboard Executivo":
     st.subheader("📋 Histórico de Vendas no Período")
     if not df_atual.empty:
         df_exibicao = df_atual.copy()
+        df_exibicao["Data"] = df_exibicao["data"].dt.strftime('%d/%m/%Y')
+        df_exibicao["Faturamento"] = (df_exibicao["qtd"] * df_exibicao["preco_unit"]).apply(formatar_moeda)
+        df_exibicao["Lucro Líquido"] = ((df_exibicao["qtd"] * df_exibicao["preco_unit"]) - ((df_exibicao["qtd"] * df_exibicao["custo_unit"]) + (df_exibicao["qtd"] * df_exibicao["taxa_ml"]) + (df_exibicao["qtd"] * df_exibicao["frete"]))).apply(formatar_moeda)
         
-        # Correção da Tabela: Data sem horário, Faturamento com R$ e Forma de Pagamento
-        df_exibicao["Data"] = df_exibicao["Data"].dt.strftime('%d/%m/%Y')
-        df_exibicao["Faturamento"] = (df_exibicao["Qtd"] * df_exibicao["Preço Unit"]).apply(formatar_moeda)
-        df_exibicao["Lucro Líquido"] = ((df_exibicao["Qtd"] * df_exibicao["Preço Unit"]) - ((df_exibicao["Qtd"] * df_exibicao["Custo Unit"]) + (df_exibicao["Qtd"] * df_exibicao["Taxa ML"]) + (df_exibicao["Qtd"] * df_exibicao["Frete"]))).apply(formatar_moeda)
-        
-        st.dataframe(df_exibicao[["Data", "Produto", "Qtd", "Pagamento", "Faturamento", "Lucro Líquido"]], use_container_width=True)
+        st.dataframe(df_exibicao[["Data", "produto", "qtd", "pagamento", "Faturamento", "Lucro Líquido"]], use_container_width=True)
     else:
-        st.info("Nenhuma venda registrada neste período. O histórico está limpo.")
+        st.info("Nenhuma venda registrada neste período.")
 
 elif menu == "Cadastrar / Listar Produtos":
-    exibir_headline("Gerenciamento de Produtos", "Cadastre novos itens ou altere valores diretamente na tabela abaixo.")
+    exibir_headline("Gerenciamento de Produtos", "Cadastre novos itens salvos diretamente na nuvem.")
     
     with st.expander("➕ Expandir Formulário para Novo Produto", expanded=True):
         with st.form("form_produto"):
@@ -232,78 +235,95 @@ elif menu == "Cadastrar / Listar Produtos":
                 estoque = st.number_input("Estoque Inicial", min_value=0, value=10, step=1)
                 
             if st.form_submit_button("Salvar Novo Produto") and sku and nome:
-                novo_dado = pd.DataFrame({"SKU": [sku], "Produto": [nome], "Custo (R$)": [custo], "Preço Venda (R$)": [preco_venda], "Taxa ML (%)": [taxa_ml], "Frete Médio (R$)": [frete_medio], "Estoque": [estoque]})
-                st.session_state.produtos = pd.concat([st.session_state.produtos, novo_dado], ignore_index=True)
-                st.success(f"Produto '{nome}' cadastrado!")
+                novo_produto = {
+                    "sku": sku, "produto": nome, "custo": custo, 
+                    "preco_venda": preco_venda, "taxa_ml": taxa_ml, 
+                    "frete_medio": frete_medio, "estoque": estoque
+                }
+                supabase.table("produtos").insert(novo_produto).execute()
+                st.success(f"Produto '{nome}' salvo no banco de dados!")
                 st.rerun()
 
-    st.subheader("Catálogo de Produtos (Edite ou Exclua)")
-    st.markdown("💡 *Dica: Dê um clique duplo em qualquer valor para editar. Para excluir um produto, selecione a caixinha à esquerda da linha e aperte a tecla DELETE (ou o ícone de lixeira).*")
-    
-    if not st.session_state.produtos.empty:
-        # data_editor permite edição e exclusão (num_rows="dynamic")
-        produtos_editados = st.data_editor(st.session_state.produtos, num_rows="dynamic", use_container_width=True, key="editor_catalogo")
-        st.session_state.produtos = produtos_editados
+    st.subheader("Catálogo de Produtos")
+    if not df_produtos.empty:
+        st.dataframe(df_produtos, use_container_width=True)
+        
+        # Opção de exclusão por SKU
+        with st.expander("🗑️ Excluir Produto por SKU"):
+            sku_para_excluir = st.selectbox("Selecione o SKU para remover", df_produtos["sku"].tolist())
+            if st.button("Excluir Produto Permanentemente"):
+                supabase.table("produtos").delete().eq("sku", sku_para_excluir).execute()
+                st.success("Produto excluído com sucesso!")
+                st.rerun()
     else:
         st.info("Nenhum produto cadastrado.")
 
 elif menu == "Registrar Venda":
-    exibir_headline("Registrar Nova Venda", "Lance vendas manuais ou simulações. Edite o histórico na tabela abaixo.")
+    exibir_headline("Registrar Nova Venda", "Lançamentos salvos permanentemente na nuvem.")
     
-    if st.session_state.produtos.empty:
+    if df_produtos.empty:
         st.warning("Cadastre produtos primeiro na aba de Gerenciamento.")
     else:
         with st.expander("🛒 Nova Venda", expanded=True):
             with st.form("form_venda"):
                 col1, col2 = st.columns(2)
                 with col1:
-                    prod_vendido = st.selectbox("Escolha o Produto", st.session_state.produtos["Produto"].tolist())
+                    prod_vendido = st.selectbox("Escolha o Produto", df_produtos["produto"].tolist())
                     qtd_vendida = st.number_input("Quantidade Vendida", min_value=1, value=1, step=1)
                 with col2:
                     data_venda = st.date_input("Data da Venda", datetime.now())
                     forma_pgto = st.selectbox("Forma de Pagamento", ["Mercado Livre", "PIX", "Cartão de Crédito", "Cartão de Débito", "Dinheiro", "Outro"])
                 
                 if st.form_submit_button("Confirmar e Registrar Venda"):
-                    p_info = st.session_state.produtos[st.session_state.produtos["Produto"] == prod_vendido].iloc[0]
-                    nova_venda = pd.DataFrame([{
-                        "Data": datetime.combine(data_venda, datetime.min.time()), 
-                        "SKU": p_info["SKU"], 
-                        "Produto": prod_vendido,
-                        "Qtd": qtd_vendida, 
-                        "Pagamento": forma_pgto,
-                        "Preço Unit": p_info["Preço Venda (R$)"], 
-                        "Custo Unit": p_info["Custo (R$)"],
-                        "Taxa ML": p_info["Preço Venda (R$)"] * (p_info["Taxa ML (%)"] / 100) if forma_pgto == "Mercado Livre" else 0.0, 
-                        "Frete": p_info["Frete Médio (R$)"] if forma_pgto == "Mercado Livre" else 0.0
-                    }])
-                    st.session_state.vendas = pd.concat([st.session_state.vendas, nova_venda], ignore_index=True)
-                    st.session_state.produtos.loc[st.session_state.produtos["Produto"] == prod_vendido, "Estoque"] -= qtd_vendida
-                    st.success(f"Venda registrada via {forma_pgto}! Estoque atualizado.")
+                    p_info = df_produtos[df_produtos["produto"] == prod_vendido].iloc[0]
+                    
+                    nova_venda = {
+                        "data": datetime.combine(data_venda, datetime.min.time()).isoformat(),
+                        "sku": p_info["sku"],
+                        "produto": prod_vendido,
+                        "qtd": int(qtd_vendida),
+                        "pagamento": forma_pgto,
+                        "preco_unit": float(p_info["preco_venda"]),
+                        "custo_unit": float(p_info["custo"]),
+                        "taxa_ml": float(p_info["preco_venda"] * (p_info["taxa_ml"] / 100)) if forma_pgto == "Mercado Livre" else 0.0,
+                        "frete": float(p_info["frete_medio"]) if forma_pgto == "Mercado Livre" else 0.0
+                    }
+                    
+                    supabase.table("vendas").insert(nova_venda).execute()
+                    
+                    # Atualizar estoque no banco
+                    novo_estoque = int(p_info["estoque"]) - int(qtd_vendida)
+                    supabase.table("produtos").update({"estoque": novo_estoque}).eq("sku", p_info["sku"]).execute()
+                    
+                    st.success("Venda registrada e estoque atualizado na nuvem!")
                     st.rerun()
 
-    st.subheader("Base Geral de Vendas (Edite ou Exclua)")
-    st.markdown("💡 *Dica: Selecione a linha e pressione DELETE para excluir uma venda errada, ou clique sobre as células para corrigir um dado.*")
-    
-    if not st.session_state.vendas.empty:
-        # data_editor para permitir correção rápida do histórico
-        vendas_editadas = st.data_editor(st.session_state.vendas, num_rows="dynamic", use_container_width=True, key="editor_vendas")
-        st.session_state.vendas = vendas_editadas
+    st.subheader("Histórico Geral de Vendas")
+    if not df_vendas.empty:
+        st.dataframe(df_vendas[["id", "data", "produto", "qtd", "pagamento", "preco_unit"]], use_container_width=True)
+        
+        with st.expander("🗑️ Excluir Venda por ID"):
+            id_para_excluir = st.number_input("Digite o ID da venda que deseja apagar", min_value=1, step=1)
+            if st.button("Excluir Venda"):
+                supabase.table("vendas").delete().eq("id", id_para_excluir).execute()
+                st.success("Venda removida do histórico!")
+                st.rerun()
     else:
         st.info("O histórico de vendas está vazio.")
 
 elif menu == "Simulador de Lucro por Venda":
-    exibir_headline("Simulador de Lucro Real", "Análise detalhada descontando comissões do marketplace, frete e custos de produto.")
+    exibir_headline("Simulador de Lucro Real", "Análise detalhada descontando comissões do marketplace, frete e custos.")
     
-    if st.session_state.produtos.empty:
-        st.warning("Cadastre produtos primeiro na aba de Cadastro para realizar simulações.")
+    if df_produtos.empty:
+        st.warning("Cadastre produtos primeiro.")
     else:
-        produto_selecionado = st.selectbox("Selecione o Produto", st.session_state.produtos["Produto"].tolist())
-        prod_data = st.session_state.produtos[st.session_state.produtos["Produto"] == produto_selecionado].iloc[0]
+        produto_selecionado = st.selectbox("Selecione o Produto", df_produtos["produto"].tolist())
+        prod_data = df_produtos[df_produtos["produto"] == produto_selecionado].iloc[0]
         
-        preco = prod_data["Preço Venda (R$)"]
-        custo = prod_data["Custo (R$)"]
-        taxa_ml_pct = prod_data["Taxa ML (%)"] / 100
-        frete = prod_data["Frete Médio (R$)"]
+        preco = float(prod_data["preco_venda"])
+        custo = float(prod_data["custo"])
+        taxa_ml_pct = float(prod_data["taxa_ml"]) / 100
+        frete = float(prod_data["frete_medio"])
         
         valor_taxa_ml = preco * taxa_ml_pct
         lucro_bruto = preco - custo - valor_taxa_ml - frete
@@ -316,17 +336,17 @@ elif menu == "Simulador de Lucro por Venda":
         col4.metric("Lucro Líquido Real", formatar_moeda(lucro_bruto), f"{margem_lucro:.1f}%")
         
         if margem_lucro < 10:
-            st.error("⚠️ Atenção: Sua margem de lucro está abaixo de 10%. Risco operacional elevado!")
+            st.error("⚠️ Atenção: Sua margem de lucro está abaixo de 10%!")
         elif margem_lucro >= 20:
             st.success("✅ Margem de lucro saudável e dentro do planejado!")
 
 elif menu == "Controle de Estoque":
-    exibir_headline("Gestão de Estoque", "Acompanhe o saldo físico dos produtos.")
-    if not st.session_state.produtos.empty:
-        st.dataframe(st.session_state.produtos[["SKU", "Produto", "Estoque"]], use_container_width=True)
-        baixo_estoque = st.session_state.produtos[st.session_state.produtos["Estoque"] <= 3]
+    exibir_headline("Gestão de Estoque", "Acompanhe o saldo físico dos produtos na nuvem.")
+    if not df_produtos.empty:
+        st.dataframe(df_produtos[["sku", "produto", "estoque"]], use_container_width=True)
+        baixo_estoque = df_produtos[df_produtos["estoque"] <= 3]
         if not baixo_estoque.empty:
             st.warning("⚠️ Alerta: Produtos com estoque crítico:")
-            st.table(baixo_estoque[["SKU", "Produto", "Estoque"]])
+            st.table(baixo_estoque[["sku", "produto", "estoque"]])
     else:
         st.info("Estoque vazio.")
