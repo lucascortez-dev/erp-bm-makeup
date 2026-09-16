@@ -6,7 +6,7 @@ from supabase import create_client, Client
 
 # Configuração da Conexão com o Supabase (Certifique-se de usar a URL raiz terminada em .co)
 SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInI1cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwMzU5ODEsImV4cCI6MjA1NjYxMTk4MX0.RuBIOfGCS7DxhfRNGLtRogLmhNmUhLb7GMWF-8bZSI6ImFub24iLCJPY3A3MiwzMDIzM01Myv4cCI6MjNlNW1TMMyNhQ"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MjUzMjQsImV4cCI6MjEwNTEwMTMyNH0.RUbIOfGCS7DxhfRNGLtRogLmhNmjUhLb7GMWF-2jZec"
 
 @st.cache_resource
 def init_connection():
