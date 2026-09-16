@@ -17,7 +17,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# 1. Configuração da Página e Estética Enterprise
+# 1. Configuração da Página e Estética High-End
 st.set_page_config(
     page_title="ERP BM Make Up Store",
     page_icon="🛍️",
@@ -31,15 +31,45 @@ st.markdown("""
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     .stApp { background-color: #f8fafc; }
     
-    /* Ocultar elementos de menu, cabeçalho e rodapé do Streamlit */
+    /* Ocultar elementos nativos do Streamlit */
     header[data-testid="stHeader"] {display: none !important;}
     #MainMenu {visibility: hidden !important;}
     footer {visibility: hidden !important;}
     .stDeployButton {display: none !important;}
     
     [data-testid="stImage"] img { mix-blend-mode: multiply; border-radius: 8px; }
-    [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
-    div.row-widget.stRadio > div { background-color: #ffffff; border-radius: 8px; padding: 10px; }
+    [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; padding-top: 1rem; }
+    
+    /* Estilização Avançada do Menu Lateral (Estilo SaaS Tabs) */
+    div.row-widget.stRadio > label { font-weight: 700; color: #1e293b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    div.row-widget.stRadio [role="radiogroup"] { gap: 10px; }
+    div.row-widget.stRadio input[type="radio"] { display: none !important; }
+    div.row-widget.stRadio label {
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 10px !important;
+        padding: 12px 16px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+        transition: all 0.25s ease-in-out;
+        cursor: pointer;
+        width: 100%;
+    }
+    div.row-widget.stRadio label:hover {
+        background-color: #fdf2f8 !important;
+        border-color: #fbcfe8 !important;
+        transform: translateX(4px);
+    }
+    div.row-widget.stRadio label p {
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        color: #475569 !important;
+        margin: 0 !important;
+    }
+    div.row-widget.stRadio label:hover p {
+        color: #d91c84 !important;
+    }
+    
+    /* Botões elegantes */
     .stButton>button {
         background: linear-gradient(135deg, #d91c84 0%, #b01269 100%);
         color: white; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 600; border: none;
@@ -49,6 +79,8 @@ st.markdown("""
         background: linear-gradient(135deg, #b01269 0%, #8c0d52 100%);
         box-shadow: 0 6px 15px rgba(217, 28, 132, 0.35);
     }
+    
+    /* Cards de Métricas */
     div[data-testid="stMetric"] {
         background-color: #ffffff; border: 1px solid #e2e8f0; padding: 20px;
         border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
@@ -76,11 +108,10 @@ if caminho_oficial_logo:
     except:
         pass
 
-# 2. Sistema de Autenticação Persistente com Query Params (Anti-F5 Logout)
+# 2. Sistema de Autenticação Persistente com Query Params
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 
-# Se a URL contiver o selo de autenticação, mantém logado mesmo após atualizar (F5)
 if "auth" in st.query_params and st.query_params["auth"] == "true":
     st.session_state.autenticado = True
 
@@ -102,7 +133,7 @@ if not st.session_state.autenticado:
             if botao_login:
                 if usuario == "admin" and senha == "bmstore2026":
                     st.session_state.autenticado = True
-                    st.query_params["auth"] = "true"  # Grava o selo na URL
+                    st.query_params["auth"] = "true"
                     st.rerun()
                 else:
                     st.error("Usuário ou senha incorretos.")
@@ -136,15 +167,42 @@ def carregar_vendas():
         st.warning(f"Aviso de conexão com o banco de vendas: {e}")
     return pd.DataFrame(columns=["id", "data", "sku", "produto", "qtd", "pagamento", "preco_unit", "custo_unit", "taxa_ml", "frete"])
 
+# Componente de Tabela SaaS de Alto Padrão (Substitui o visual de Excel)
+def render_tabela_saas(df, colunas):
+    if df.empty:
+        st.info("Nenhum registro encontrado.")
+        return
+    
+    html_code = "<div style='background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); overflow: hidden; margin-top: 10px;'>"
+    html_code += "<table style='width: 100%; border-collapse: collapse; font-family: \"Plus Jakarta Sans\", sans-serif; font-size: 14px; text-align: left;'>"
+    
+    # Cabeçalho corporativo
+    html_code += "<tr style='background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em;'>"
+    for col in colunas:
+        html_code += f"<th style='padding: 14px 18px;'>{col}</th>"
+    html_code += "</tr>"
+    
+    # Linhas de dados estilizadas
+    for idx, row in df.iterrows():
+        bg_color = "#ffffff" if idx % 2 == 0 else "#fafafa"
+        html_code += f"<tr style='background-color: {bg_color}; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;' onmouseover=\"this.style.backgroundColor='#fdf2f8'\" onmouseout=\"this.style.backgroundColor='{bg_color}'\">"
+        for col in colunas:
+            val = row[col] if col in row else ""
+            html_code += f"<td style='padding: 14px 18px; color: #334155;'>{val}</td>"
+        html_code += "</tr>"
+        
+    html_code += "</table></div>"
+    st.markdown(html_code, unsafe_allow_html=True)
+
 # 4. Barra Lateral de Navegação
-st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 22px; margin-top: 10px;'>ERP BM Make Up</h3>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 20px; font-weight: 700; margin-top: 10px;'>ERP BM Make Up</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 menu = st.sidebar.radio("Navegação Principal", ["Dashboard Executivo", "Cadastrar / Listar Produtos", "Registrar Venda", "Simulador de Lucro por Venda", "Controle de Estoque"])
 st.sidebar.markdown("---")
 if st.sidebar.button("Sair / Logout", use_container_width=True):
     st.session_state.autenticado = False
     if "auth" in st.query_params:
-        del st.query_params["auth"] # Remove o selo de segurança ao deslogar
+        del st.query_params["auth"]
     st.rerun()
 
 def exibir_headline(titulo_pagina, subtitulo):
@@ -153,9 +211,9 @@ def exibir_headline(titulo_pagina, subtitulo):
         if caminho_oficial_logo:
             st.image(caminho_oficial_logo, use_container_width=True)
     with col_texto:
-        st.markdown("<span style='color: #d91c84; font-weight: bold; font-size: 14px;'>ERP BM MAKE UP STORE</span>", unsafe_allow_html=True)
+        st.markdown("<span style='color: #d91c84; font-weight: bold; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase;'>ERP BM MAKE UP STORE</span>", unsafe_allow_html=True)
         st.title(titulo_pagina)
-        st.markdown(f"<p style='color: #64748b; font-size: 16px; margin-top: -10px;'>{subtitulo}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #64748b; font-size: 15px; margin-top: -5px;'>{subtitulo}</p>", unsafe_allow_html=True)
     st.markdown("---")
 
 def formatar_moeda(valor):
@@ -166,7 +224,7 @@ df_produtos = carregar_produtos()
 df_vendas = carregar_vendas()
 
 if menu == "Dashboard Executivo":
-    exibir_headline("Dashboard Executivo", "Desempenho financeiro, faturamento e lucratividade da loja.")
+    exibir_headline("Dashboard Executivo", "Desempenho financeiro, faturamento e lucratividade da loja em tempo real.")
     
     col_f1, col_f2 = st.columns([2, 2])
     with col_f1:
@@ -238,7 +296,8 @@ if menu == "Dashboard Executivo":
         df_exibicao["Faturamento"] = (df_exibicao["qtd"] * df_exibicao["preco_unit"]).apply(formatar_moeda)
         df_exibicao["Lucro Líquido"] = ((df_exibicao["qtd"] * df_exibicao["preco_unit"]) - ((df_exibicao["qtd"] * df_exibicao["custo_unit"]) + (df_exibicao["qtd"] * df_exibicao["taxa_ml"]) + (df_exibicao["qtd"] * df_exibicao["frete"]))).apply(formatar_moeda)
         
-        st.dataframe(df_exibicao[["Data", "produto", "qtd", "pagamento", "Faturamento", "Lucro Líquido"]], use_container_width=True)
+        # Renderizando com a nossa Tabela SaaS de alta estética
+        render_tabela_saas(df_exibicao, ["Data", "produto", "qtd", "pagamento", "Faturamento", "Lucro Líquido"])
     else:
         st.info("Nenhuma venda registrada neste período.")
 
@@ -330,7 +389,10 @@ elif menu == "Registrar Venda":
 
     st.subheader("Histórico Geral de Vendas")
     if not df_vendas.empty:
-        st.dataframe(df_vendas[["id", "data", "produto", "qtd", "pagamento", "preco_unit"]], use_container_width=True)
+        df_exibicao_geral = df_vendas.copy()
+        if "data" in df_exibicao_geral.columns:
+            df_exibicao_geral["Data"] = df_exibicao_geral["data"].dt.strftime('%d/%m/%Y')
+        render_tabela_saas(df_exibicao_geral, ["id", "Data", "produto", "qtd", "pagamento", "preco_unit"])
         
         with st.expander("🗑️ Excluir Venda por ID"):
             id_para_excluir = st.number_input("Digite o ID da venda que deseja apagar", min_value=1, step=1)
@@ -376,10 +438,11 @@ elif menu == "Simulador de Lucro por Venda":
 elif menu == "Controle de Estoque":
     exibir_headline("Gestão de Estoque", "Acompanhe o saldo físico dos produtos na nuvem.")
     if not df_produtos.empty:
-        st.dataframe(df_produtos[["sku", "produto", "estoque"]], use_container_width=True)
+        render_tabela_saas(df_produtos, ["sku", "produto", "estoque", "preco_venda", "custo"])
         baixo_estoque = df_produtos[df_produtos["estoque"] <= 3]
         if not baixo_estoque.empty:
+            st.markdown("<br>", unsafe_allow_html=True)
             st.warning("⚠️ Alerta: Produtos com estoque crítico:")
-            st.table(baixo_estoque[["sku", "produto", "estoque"]])
+            render_tabela_saas(baixo_estoque, ["sku", "produto", "estoque"])
     else:
         st.info("Estoque vazio.")
