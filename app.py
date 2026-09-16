@@ -202,28 +202,28 @@ st.sidebar.markdown("<p style='font-size: 11px; font-weight: 700; color: #94a3b8
 if 'menu_atual' not in st.session_state:
     st.session_state.menu_atual = "Dashboard Executivo"
 
-if st.sidebar.button("📊  Dashboard Executivo", use_container_width=True):
+if st.sidebar.button("  Dashboard Executivo", use_container_width=True):
     st.session_state.menu_atual = "Dashboard Executivo"
     st.rerun()
 
-if st.sidebar.button("📦  Cadastrar / Listar Produtos", use_container_width=True):
+if st.sidebar.button("  Cadastrar / Listar Produtos", use_container_width=True):
     st.session_state.menu_atual = "Cadastrar / Listar Produtos"
     st.rerun()
 
-if st.sidebar.button("🛒  Registrar Venda", use_container_width=True):
+if st.sidebar.button("  Registrar Venda", use_container_width=True):
     st.session_state.menu_atual = "Registrar Venda"
     st.rerun()
 
-if st.sidebar.button("💡  Simulador de Lucro", use_container_width=True):
+if st.sidebar.button("  Simulador de Lucro", use_container_width=True):
     st.session_state.menu_atual = "Simulador de Lucro por Venda"
     st.rerun()
 
-if st.sidebar.button("📋  Controle de Estoque", use_container_width=True):
+if st.sidebar.button("  Controle de Estoque", use_container_width=True):
     st.session_state.menu_atual = "Controle de Estoque"
     st.rerun()
 
 st.sidebar.markdown("---")
-if st.sidebar.button("🚪  Sair / Logout", use_container_width=True):
+if st.sidebar.button("  Sair / Logout", use_container_width=True):
     st.session_state.autenticado = False
     if "auth" in st.query_params:
         del st.query_params["auth"]
