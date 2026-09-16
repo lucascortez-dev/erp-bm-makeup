@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 import os
 from supabase import create_client, Client
 
-# Configuração da Conexão com o Supabase (Certifique-se de usar a URL raiz terminada em .co)
+# Configuração da Conexão com o Supabase
 SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MjUzMjQsImV4cCI6MjEwNTEwMTMyNH0.RUbIOfGCS7DxhfRNGLtRogLmhNmjUhLb7GMWF-2jZec"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInI1cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwMzU5ODEsImV4cCI6MjA1NjYxMTk4MX0.RuBIOfGCS7DxhfRNGLtRogLmhNmUhLb7GMWF-8bZSI6ImFub24iLCJPY3A3MiwzMDIzM01Myv4cCI6MjNlNW1TMMyNhQ"
 
 @st.cache_resource
 def init_connection():
@@ -30,6 +30,13 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     .stApp { background-color: #f8fafc; }
+    
+    /* Ocultar elementos de menu, cabeçalho e rodapé do Streamlit */
+    header[data-testid="stHeader"] {display: none !important;}
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    .stDeployButton {display: none !important;}
+    
     [data-testid="stImage"] img { mix-blend-mode: multiply; border-radius: 8px; }
     [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
     div.row-widget.stRadio > div { background-color: #ffffff; border-radius: 8px; padding: 10px; }
@@ -69,9 +76,13 @@ if caminho_oficial_logo:
     except:
         pass
 
-# 2. Sistema de Autenticação
+# 2. Sistema de Autenticação Persistente com Query Params (Anti-F5 Logout)
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
+
+# Se a URL contiver o selo de autenticação, mantém logado mesmo após atualizar (F5)
+if "auth" in st.query_params and st.query_params["auth"] == "true":
+    st.session_state.autenticado = True
 
 if not st.session_state.autenticado:
     col1, col2, col3 = st.columns([1, 1.2, 1])
@@ -91,12 +102,13 @@ if not st.session_state.autenticado:
             if botao_login:
                 if usuario == "admin" and senha == "bmstore2026":
                     st.session_state.autenticado = True
+                    st.query_params["auth"] = "true"  # Grava o selo na URL
                     st.rerun()
                 else:
                     st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# Funções de Leitura Protegidas com Tratamento de Erro
+# Funções de Leitura Protegidas
 def carregar_produtos():
     if not supabase:
         return pd.DataFrame(columns=["sku", "produto", "custo", "preco_venda", "taxa_ml", "frete_medio", "estoque"])
@@ -131,6 +143,8 @@ menu = st.sidebar.radio("Navegação Principal", ["Dashboard Executivo", "Cadast
 st.sidebar.markdown("---")
 if st.sidebar.button("Sair / Logout", use_container_width=True):
     st.session_state.autenticado = False
+    if "auth" in st.query_params:
+        del st.query_params["auth"] # Remove o selo de segurança ao deslogar
     st.rerun()
 
 def exibir_headline(titulo_pagina, subtitulo):
