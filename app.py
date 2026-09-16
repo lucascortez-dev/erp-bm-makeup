@@ -131,6 +131,138 @@ if not st.session_state.autenticado:
             if botao_login:
                 if usuario == "admin" and senha == "bmstore2026":
                     st.session_state.autenticado = True
+                    st.query_params["auth"] = "true"import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta
+import os
+from supabase import create_client, Client
+
+# ==========================================
+# CONFIGURAÇÃO DE ACESSO AO SUPABASE
+# ==========================================
+SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInI1cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwMzU5ODEsImV4cCI6MjA1NjYxMTk4MX0.RuBIOfGCS7DxhfRNGLtRogLmhNmUhLb7GMWF-8bZSI6ImFub24iLCJPY3A3MiwzMDIzM01Myv4cCI6MjNlNW1TMMyNhQ"
+
+@st.cache_resource
+def init_connection():
+    try:
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        return None
+
+supabase = init_connection()
+
+# ==========================================
+# CONFIGURAÇÃO DA PÁGINA E ESTÉTICA HIGH-END
+# ==========================================
+st.set_page_config(
+    page_title="ERP BM Make Up Store",
+    page_icon="🛍️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .stApp { background-color: #f8fafc; }
+    
+    /* Ocultar apenas elementos de deploy e menus irrelevantes, mantendo o controle da sidebar */
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    .stDeployButton {display: none !important;}
+    
+    [data-testid="stImage"] img { mix-blend-mode: multiply; border-radius: 8px; }
+    [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; padding-top: 1rem; }
+    
+    /* Estilização Avançada dos Botões da Sidebar (Padrão SaaS) */
+    [data-testid="stSidebar"] .stButton>button {
+        background: #ffffff !important;
+        color: #475569 !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 10px !important;
+        padding: 0.7rem 1rem !important;
+        font-weight: 600 !important;
+        text-align: left !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.01) !important;
+        transition: all 0.2s ease-in-out;
+        width: 100% !important;
+        margin-bottom: 6px;
+    }
+    [data-testid="stSidebar"] .stButton>button:hover {
+        background: #fdf2f8 !important;
+        color: #d91c84 !important;
+        border-color: #fbcfe8 !important;
+        transform: translateX(4px);
+    }
+    
+    /* Botões de Ação Principais (Ex: Salvar, Confirmar) */
+    .main .stButton>button {
+        background: linear-gradient(135deg, #d91c84 0%, #b01269 100%);
+        color: white; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 600; border: none;
+        box-shadow: 0 4px 12px rgba(217, 28, 132, 0.2); transition: all 0.3s ease;
+    }
+    .main .stButton>button:hover {
+        background: linear-gradient(135deg, #b01269 0%, #8c0d52 100%);
+        box-shadow: 0 6px 15px rgba(217, 28, 132, 0.35);
+    }
+    
+    /* Cards de Métricas */
+    div[data-testid="stMetric"] {
+        background-color: #ffffff; border: 1px solid #e2e8f0; padding: 20px;
+        border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    div[data-testid="stMetric"] label { color: #64748b !important; font-weight: 500; }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] { color: #d91c84 !important; font-weight: 700; }
+    h1, h2, h3 { color: #1e293b; font-weight: 700; margin-bottom: 0px; padding-bottom: 0px;}
+    </style>
+""", unsafe_allow_html=True)
+
+# Motor de busca inteligente da Logo
+@st.cache_resource
+def encontrar_caminho_logo():
+    pasta_atual = os.path.dirname(os.path.abspath(__file__))
+    for arquivo in ["logo.png", "logo.png.png", "logo.jpg", "logo.jpeg"]:
+        caminho = os.path.join(pasta_atual, arquivo)
+        if os.path.exists(caminho):
+            return caminho
+    return None
+
+caminho_oficial_logo = encontrar_caminho_logo()
+if caminho_oficial_logo:
+    try:
+        st.logo(caminho_oficial_logo)
+    except:
+        pass
+
+# ==========================================
+# SISTEMA DE AUTENTICAÇÃO PERSISTENTE
+# ==========================================
+if 'autenticado' not in st.session_state:
+    st.session_state.autenticado = False
+
+if "auth" in st.query_params and st.query_params["auth"] == "true":
+    st.session_state.autenticado = True
+
+if not st.session_state.autenticado:
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if caminho_oficial_logo:
+            st.image(caminho_oficial_logo, width=180)
+            
+        st.markdown("<h2 style='color: #d91c84;'>ERP BM Make Up</h2>", unsafe_allow_html=True)
+        st.markdown("<h3 style='font-size: 18px; margin-top: 5px; margin-bottom: 20px; color: #64748b;'>Acesso Restrito ao Sistema</h3>", unsafe_allow_html=True)
+        
+        with st.form("form_login"):
+            usuario = st.text_input("Usuário")
+            senha = st.text_input("Senha", type="password")
+            botao_login = st.form_submit_button("Entrar no Sistema", use_container_width=True)
+            
+            if botao_login:
+                if usuario == "admin" and senha == "bmstore2026":
+                    st.session_state.autenticado = True
                     st.query_params["auth"] = "true"
                     st.rerun()
                 else:
