@@ -114,7 +114,7 @@ if not st.session_state.autenticado:
         if caminho_oficial_logo:
             st.image(caminho_oficial_logo, width=180)
             
-        st.markdown("<h2 style='color: #d91c84;'>ERP BM Make Up</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color: #d91c84;'>ERP Bmake Up</h2>", unsafe_allow_html=True)
         st.markdown("<h3 style='font-size: 18px; margin-top: 5px; margin-bottom: 20px; color: #64748b;'>Acesso Restrito ao Sistema</h3>", unsafe_allow_html=True)
         
         with st.form("form_login"):
@@ -230,7 +230,7 @@ def exibir_headline(titulo_pagina, subtitulo):
         if caminho_oficial_logo:
             st.image(caminho_oficial_logo, use_container_width=True)
     with col_texto:
-        st.markdown("<span style='color: #d91c84; font-weight: bold; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;'>ERP BM MAKE UP STORE</span>", unsafe_allow_html=True)
+        st.markdown("<span style='color: #d91c84; font-weight: bold; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;'>ERP BMAKE UP STORE</span>", unsafe_allow_html=True)
         st.title(titulo_pagina)
         st.markdown(f"<p style='color: #64748b; font-size: 15px; margin-top: -5px;'>{subtitulo}</p>", unsafe_allow_html=True)
     st.markdown("---")
