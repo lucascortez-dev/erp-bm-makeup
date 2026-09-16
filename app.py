@@ -26,6 +26,9 @@ st.markdown("""
     
     [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
     
+    /* Ajuste visual do menu lateral (Radio buttons) */
+    div.row-widget.stRadio > div { background-color: #ffffff; border-radius: 8px; padding: 10px; }
+    
     /* Botões elegantes */
     .stButton>button {
         background: linear-gradient(135deg, #d91c84 0%, #b01269 100%);
@@ -60,7 +63,6 @@ def encontrar_caminho_logo():
 
 caminho_oficial_logo = encontrar_caminho_logo()
 
-# Integração Nativa da Logo no Sistema (Canto superior esquerdo padrão SaaS)
 if caminho_oficial_logo:
     try:
         st.logo(caminho_oficial_logo)
@@ -94,35 +96,41 @@ if not st.session_state.autenticado:
                     st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# 3. Inicialização de Dados Limpos
+# 3. Inicialização de Dados Limpos (Com Tratamento de Estruturas Novas)
 if 'produtos' not in st.session_state:
     st.session_state.produtos = pd.DataFrame(columns=["SKU", "Produto", "Custo (R$)", "Preço Venda (R$)", "Taxa ML (%)", "Frete Médio (R$)", "Estoque"])
 
 if 'vendas' not in st.session_state:
-    st.session_state.vendas = pd.DataFrame(columns=["Data", "SKU", "Produto", "Qtd", "Preço Unit", "Custo Unit", "Taxa ML", "Frete"])
+    st.session_state.vendas = pd.DataFrame(columns=["Data", "SKU", "Produto", "Qtd", "Pagamento", "Preço Unit", "Custo Unit", "Taxa ML", "Frete"])
+elif "Pagamento" not in st.session_state.vendas.columns:
+    # Atualização caso o banco de dados antigo ainda esteja na sessão
+    st.session_state.vendas["Pagamento"] = "Não informado"
 
-# 4. Barra Lateral de Navegação
+# 4. Barra Lateral de Navegação (Agora com st.radio para exibir tudo)
 st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 22px; margin-top: 10px;'>ERP BM Make Up</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
-menu = st.sidebar.selectbox("Navegação Principal", ["Dashboard Executivo", "Cadastrar / Listar Produtos", "Registrar Venda", "Simulador de Lucro por Venda", "Controle de Estoque"])
+# Usando RADIO em vez de SELECTBOX para deixar as opções visíveis
+menu = st.sidebar.radio("Navegação Principal", ["Dashboard Executivo", "Cadastrar / Listar Produtos", "Registrar Venda", "Simulador de Lucro por Venda", "Controle de Estoque"])
 st.sidebar.markdown("---")
 if st.sidebar.button("Sair / Logout", use_container_width=True):
     st.session_state.autenticado = False
     st.rerun()
 
-# Função auxiliar para a Headline perfeitamente alinhada
+# Função auxiliar para a Headline
 def exibir_headline(titulo_pagina, subtitulo):
     col_logo, col_texto = st.columns([1, 8], vertical_alignment="center")
-    
     with col_logo:
         if caminho_oficial_logo:
             st.image(caminho_oficial_logo, use_container_width=True)
-            
     with col_texto:
         st.markdown("<span style='color: #d91c84; font-weight: bold; font-size: 14px;'>ERP BM MAKE UP STORE</span>", unsafe_allow_html=True)
         st.title(titulo_pagina)
         st.markdown(f"<p style='color: #64748b; font-size: 16px; margin-top: -10px;'>{subtitulo}</p>", unsafe_allow_html=True)
     st.markdown("---")
+
+# Função auxiliar para formatação de moeda BRL
+def formatar_moeda(valor):
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 # 5. Módulos do Sistema
 if menu == "Dashboard Executivo":
@@ -145,7 +153,6 @@ if menu == "Dashboard Executivo":
             else:
                 data_inicio = hoje - timedelta(days=30)
 
-    # Lógica do Período Anterior para Comparação (Deltas)
     dias_delta = (hoje - data_inicio).days
     if dias_delta <= 0: dias_delta = 1
     
@@ -158,10 +165,9 @@ if menu == "Dashboard Executivo":
         df_atual = df_vendas[(df_vendas["Data"] >= data_inicio) & (df_vendas["Data"] <= hoje)]
         df_ant = df_vendas[(df_vendas["Data"] >= data_inicio_anterior) & (df_vendas["Data"] <= data_fim_anterior)]
     else:
-        df_atual = pd.DataFrame(columns=["Data", "SKU", "Qtd", "Preço Unit", "Custo Unit", "Taxa ML", "Frete"])
-        df_ant = pd.DataFrame(columns=["Data", "SKU", "Qtd", "Preço Unit", "Custo Unit", "Taxa ML", "Frete"])
+        df_atual = pd.DataFrame(columns=["Data", "SKU", "Qtd", "Pagamento", "Preço Unit", "Custo Unit", "Taxa ML", "Frete"])
+        df_ant = pd.DataFrame(columns=["Data", "SKU", "Qtd", "Pagamento", "Preço Unit", "Custo Unit", "Taxa ML", "Frete"])
 
-    # Cálculos Período Atual
     fat_atual = (df_atual["Qtd"] * df_atual["Preço Unit"]).sum() if not df_atual.empty else 0.0
     custos_atual = ((df_atual["Qtd"] * df_atual["Custo Unit"]) + (df_atual["Qtd"] * df_atual["Taxa ML"]) + (df_atual["Qtd"] * df_atual["Frete"])).sum() if not df_atual.empty else 0.0
     lucro_atual = fat_atual - custos_atual
@@ -169,15 +175,12 @@ if menu == "Dashboard Executivo":
     vendas_atual = df_atual['Qtd'].sum() if not df_atual.empty else 0
     skus_atual = len(st.session_state.produtos)
 
-    # Cálculos Período Anterior
     fat_ant = (df_ant["Qtd"] * df_ant["Preço Unit"]).sum() if not df_ant.empty else 0.0
     custos_ant = ((df_ant["Qtd"] * df_ant["Custo Unit"]) + (df_ant["Qtd"] * df_ant["Taxa ML"]) + (df_ant["Qtd"] * df_ant["Frete"])).sum() if not df_ant.empty else 0.0
     lucro_ant = fat_ant - custos_ant
     margem_ant = (lucro_ant / fat_ant * 100) if fat_ant > 0 else 0.0
     vendas_ant = df_ant['Qtd'].sum() if not df_ant.empty else 0
-    skus_ant = skus_atual 
 
-    # Função para formatar o Delta
     def calc_delta(atual, anterior, format_pct=True):
         if anterior == 0: return f"{100.0:.1f}%" if atual > 0 else "0.0%"
         var = ((atual - anterior) / anterior) * 100
@@ -185,16 +188,15 @@ if menu == "Dashboard Executivo":
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Exibição dos KPIs (6 Cards)
     k1, k2, k3 = st.columns(3)
-    k1.metric("Faturamento Total", f"R$ {fat_atual:,.2f}", calc_delta(fat_atual, fat_ant))
-    k2.metric("Lucro Total", f"R$ {lucro_atual:,.2f}", calc_delta(lucro_atual, lucro_ant))
+    k1.metric("Faturamento Total", formatar_moeda(fat_atual), calc_delta(fat_atual, fat_ant))
+    k2.metric("Lucro Total", formatar_moeda(lucro_atual), calc_delta(lucro_atual, lucro_ant))
     k3.metric("Margem de Lucro Média", f"{margem_atual:.1f}%", calc_delta(margem_atual, margem_ant))
     
     st.markdown("<br>", unsafe_allow_html=True)
     
     k4, k5, k6 = st.columns(3)
-    k4.metric("Total de Custos", f"R$ {custos_atual:,.2f}", calc_delta(custos_atual, custos_ant), delta_color="inverse")
+    k4.metric("Total de Custos", formatar_moeda(custos_atual), calc_delta(custos_atual, custos_ant), delta_color="inverse")
     k5.metric("Volume de Vendas", f"{vendas_atual} un", calc_delta(vendas_atual, vendas_ant))
     k6.metric("Total de SKUs Ativos", f"{skus_atual}", "0.0%", delta_color="off")
 
@@ -202,59 +204,92 @@ if menu == "Dashboard Executivo":
     st.subheader("📋 Histórico de Vendas no Período")
     if not df_atual.empty:
         df_exibicao = df_atual.copy()
-        df_exibicao["Faturamento"] = df_exibicao["Qtd"] * df_exibicao["Preço Unit"]
-        df_exibicao["Lucro Líquido"] = (df_exibicao["Qtd"] * df_exibicao["Preço Unit"]) - ((df_exibicao["Qtd"] * df_exibicao["Custo Unit"]) + (df_exibicao["Qtd"] * df_exibicao["Taxa ML"]) + (df_exibicao["Qtd"] * df_exibicao["Frete"]))
-        st.dataframe(df_exibicao[["Data", "Produto", "Qtd", "Faturamento", "Lucro Líquido"]], use_container_width=True)
+        
+        # Correção da Tabela: Data sem horário, Faturamento com R$ e Forma de Pagamento
+        df_exibicao["Data"] = df_exibicao["Data"].dt.strftime('%d/%m/%Y')
+        df_exibicao["Faturamento"] = (df_exibicao["Qtd"] * df_exibicao["Preço Unit"]).apply(formatar_moeda)
+        df_exibicao["Lucro Líquido"] = ((df_exibicao["Qtd"] * df_exibicao["Preço Unit"]) - ((df_exibicao["Qtd"] * df_exibicao["Custo Unit"]) + (df_exibicao["Qtd"] * df_exibicao["Taxa ML"]) + (df_exibicao["Qtd"] * df_exibicao["Frete"]))).apply(formatar_moeda)
+        
+        st.dataframe(df_exibicao[["Data", "Produto", "Qtd", "Pagamento", "Faturamento", "Lucro Líquido"]], use_container_width=True)
     else:
         st.info("Nenhuma venda registrada neste período. O histórico está limpo.")
 
 elif menu == "Cadastrar / Listar Produtos":
-    exibir_headline("Gerenciamento de Produtos", "Cadastre novos itens informando os custos de aquisição e precificação.")
-    with st.form("form_produto"):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            sku = st.text_input("SKU / Código do Produto")
-            nome = st.text_input("Nome do Produto")
-        with col2:
-            custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
-            preco_venda = st.number_input("Preço de Venda no ML (R$)", min_value=0.0, format="%.2f")
-        with col3:
-            taxa_ml = st.number_input("Taxa Média do ML (%)", value=16.0, min_value=0.0)
-            frete_medio = st.number_input("Custo Fixo / Frete (R$)", value=0.0, min_value=0.0)
-            estoque = st.number_input("Estoque Inicial", min_value=0, value=10, step=1)
-            
-        if st.form_submit_button("Salvar Novo Produto") and sku and nome:
-            novo_dado = pd.DataFrame({"SKU": [sku], "Produto": [nome], "Custo (R$)": [custo], "Preço Venda (R$)": [preco_venda], "Taxa ML (%)": [taxa_ml], "Frete Médio (R$)": [frete_medio], "Estoque": [estoque]})
-            st.session_state.produtos = pd.concat([st.session_state.produtos, novo_dado], ignore_index=True)
-            st.success(f"Produto '{nome}' cadastrado!")
-            st.rerun()
+    exibir_headline("Gerenciamento de Produtos", "Cadastre novos itens ou altere valores diretamente na tabela abaixo.")
+    
+    with st.expander("➕ Expandir Formulário para Novo Produto", expanded=True):
+        with st.form("form_produto"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                sku = st.text_input("SKU / Código do Produto")
+                nome = st.text_input("Nome do Produto")
+            with col2:
+                custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
+                preco_venda = st.number_input("Preço de Venda no ML (R$)", min_value=0.0, format="%.2f")
+            with col3:
+                taxa_ml = st.number_input("Taxa Média do ML (%)", value=16.0, min_value=0.0)
+                frete_medio = st.number_input("Custo Fixo / Frete (R$)", value=0.0, min_value=0.0)
+                estoque = st.number_input("Estoque Inicial", min_value=0, value=10, step=1)
+                
+            if st.form_submit_button("Salvar Novo Produto") and sku and nome:
+                novo_dado = pd.DataFrame({"SKU": [sku], "Produto": [nome], "Custo (R$)": [custo], "Preço Venda (R$)": [preco_venda], "Taxa ML (%)": [taxa_ml], "Frete Médio (R$)": [frete_medio], "Estoque": [estoque]})
+                st.session_state.produtos = pd.concat([st.session_state.produtos, novo_dado], ignore_index=True)
+                st.success(f"Produto '{nome}' cadastrado!")
+                st.rerun()
 
-    st.subheader("Catálogo de Produtos")
+    st.subheader("Catálogo de Produtos (Edite ou Exclua)")
+    st.markdown("💡 *Dica: Dê um clique duplo em qualquer valor para editar. Para excluir um produto, selecione a caixinha à esquerda da linha e aperte a tecla DELETE (ou o ícone de lixeira).*")
+    
     if not st.session_state.produtos.empty:
-        st.dataframe(st.session_state.produtos, use_container_width=True)
+        # data_editor permite edição e exclusão (num_rows="dynamic")
+        produtos_editados = st.data_editor(st.session_state.produtos, num_rows="dynamic", use_container_width=True, key="editor_catalogo")
+        st.session_state.produtos = produtos_editados
     else:
         st.info("Nenhum produto cadastrado.")
 
 elif menu == "Registrar Venda":
-    exibir_headline("Registrar Nova Venda", "Registre vendas para alimentar o Dashboard Executivo e dar baixa no estoque.")
+    exibir_headline("Registrar Nova Venda", "Lance vendas manuais ou simulações. Edite o histórico na tabela abaixo.")
+    
     if st.session_state.produtos.empty:
-        st.warning("Cadastre produtos primeiro.")
+        st.warning("Cadastre produtos primeiro na aba de Gerenciamento.")
     else:
-        with st.form("form_venda"):
-            prod_vendido = st.selectbox("Escolha o Produto", st.session_state.produtos["Produto"].tolist())
-            qtd_vendida = st.number_input("Quantidade Vendida", min_value=1, value=1, step=1)
-            data_venda = st.date_input("Data da Venda", datetime.now())
-            
-            if st.form_submit_button("Confirmar e Registrar Venda"):
-                p_info = st.session_state.produtos[st.session_state.produtos["Produto"] == prod_vendido].iloc[0]
-                nova_venda = pd.DataFrame([{
-                    "Data": datetime.combine(data_venda, datetime.min.time()), "SKU": p_info["SKU"], "Produto": prod_vendido,
-                    "Qtd": qtd_vendida, "Preço Unit": p_info["Preço Venda (R$)"], "Custo Unit": p_info["Custo (R$)"],
-                    "Taxa ML": p_info["Preço Venda (R$)"] * (p_info["Taxa ML (%)"] / 100), "Frete": p_info["Frete Médio (R$)"]
-                }])
-                st.session_state.vendas = pd.concat([st.session_state.vendas, nova_venda], ignore_index=True)
-                st.session_state.produtos.loc[st.session_state.produtos["Produto"] == prod_vendido, "Estoque"] -= qtd_vendida
-                st.success(f"Venda registrada! Estoque atualizado.")
+        with st.expander("🛒 Nova Venda", expanded=True):
+            with st.form("form_venda"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    prod_vendido = st.selectbox("Escolha o Produto", st.session_state.produtos["Produto"].tolist())
+                    qtd_vendida = st.number_input("Quantidade Vendida", min_value=1, value=1, step=1)
+                with col2:
+                    data_venda = st.date_input("Data da Venda", datetime.now())
+                    forma_pgto = st.selectbox("Forma de Pagamento", ["Mercado Livre", "PIX", "Cartão de Crédito", "Cartão de Débito", "Dinheiro", "Outro"])
+                
+                if st.form_submit_button("Confirmar e Registrar Venda"):
+                    p_info = st.session_state.produtos[st.session_state.produtos["Produto"] == prod_vendido].iloc[0]
+                    nova_venda = pd.DataFrame([{
+                        "Data": datetime.combine(data_venda, datetime.min.time()), 
+                        "SKU": p_info["SKU"], 
+                        "Produto": prod_vendido,
+                        "Qtd": qtd_vendida, 
+                        "Pagamento": forma_pgto,
+                        "Preço Unit": p_info["Preço Venda (R$)"], 
+                        "Custo Unit": p_info["Custo (R$)"],
+                        "Taxa ML": p_info["Preço Venda (R$)"] * (p_info["Taxa ML (%)"] / 100) if forma_pgto == "Mercado Livre" else 0.0, 
+                        "Frete": p_info["Frete Médio (R$)"] if forma_pgto == "Mercado Livre" else 0.0
+                    }])
+                    st.session_state.vendas = pd.concat([st.session_state.vendas, nova_venda], ignore_index=True)
+                    st.session_state.produtos.loc[st.session_state.produtos["Produto"] == prod_vendido, "Estoque"] -= qtd_vendida
+                    st.success(f"Venda registrada via {forma_pgto}! Estoque atualizado.")
+                    st.rerun()
+
+    st.subheader("Base Geral de Vendas (Edite ou Exclua)")
+    st.markdown("💡 *Dica: Selecione a linha e pressione DELETE para excluir uma venda errada, ou clique sobre as células para corrigir um dado.*")
+    
+    if not st.session_state.vendas.empty:
+        # data_editor para permitir correção rápida do histórico
+        vendas_editadas = st.data_editor(st.session_state.vendas, num_rows="dynamic", use_container_width=True, key="editor_vendas")
+        st.session_state.vendas = vendas_editadas
+    else:
+        st.info("O histórico de vendas está vazio.")
 
 elif menu == "Simulador de Lucro por Venda":
     exibir_headline("Simulador de Lucro Real", "Análise detalhada descontando comissões do marketplace, frete e custos de produto.")
@@ -275,10 +310,10 @@ elif menu == "Simulador de Lucro por Venda":
         margem_lucro = (lucro_bruto / preco * 100) if preco > 0 else 0
         
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Preço de Venda", f"R$ {preco:.2f}")
-        col2.metric("Custo de Aquisição", f"R$ {custo:.2f}")
-        col3.metric("Taxa ML + Frete", f"R$ {(valor_taxa_ml + frete):.2f}")
-        col4.metric("Lucro Líquido Real", f"R$ {lucro_bruto:.2f}", f"{margem_lucro:.1f}%")
+        col1.metric("Preço de Venda", formatar_moeda(preco))
+        col2.metric("Custo de Aquisição", formatar_moeda(custo))
+        col3.metric("Taxa ML + Frete", formatar_moeda(valor_taxa_ml + frete))
+        col4.metric("Lucro Líquido Real", formatar_moeda(lucro_bruto), f"{margem_lucro:.1f}%")
         
         if margem_lucro < 10:
             st.error("⚠️ Atenção: Sua margem de lucro está abaixo de 10%. Risco operacional elevado!")
