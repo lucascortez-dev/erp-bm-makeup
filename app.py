@@ -332,7 +332,7 @@ elif menu == "Cadastrar / Listar Produtos":
                 nome = st.text_input("Nome do Produto")
             with col2:
                 custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
-                preco_venda = st.number_input("Preço de Venda no ML (R$)", min_value=0.0, format="%.2f")
+                preco_venda = st.number_input("Preço de Venda Padrão (R$)", min_value=0.0, format="%.2f")
             with col3:
                 taxa_ml = st.number_input("Taxa Média do ML (%)", value=16.0, min_value=0.0)
                 frete_medio = st.number_input("Custo Fixo / Frete (R$)", value=0.0, min_value=0.0)
@@ -368,33 +368,37 @@ elif menu == "Cadastrar / Listar Produtos":
         st.info("Nenhum produto cadastrado.")
 
 elif menu == "Registrar Venda":
-    exibir_headline("Registrar Nova Venda", "Lançamentos salvos permanentemente na nuvem.")
+    exibir_headline("Registrar Nova Venda", "Lançamentos com preço customizável salvos permanentemente na nuvem.")
     
     if df_produtos.empty:
         st.warning("Cadastre produtos primeiro na aba de Gerenciamento.")
     else:
         with st.expander("🛒 Nova Venda", expanded=True):
+            # Seleção de produto fora do formulário para capturar dinamicamente o preço base sugerido
+            prod_vendido = st.selectbox("Escolha o Produto", df_produtos["produto"].tolist())
+            p_info = df_produtos[df_produtos["produto"] == prod_vendido].iloc[0]
+            preco_sugerido = float(p_info["preco_venda"])
+            
             with st.form("form_venda"):
                 col1, col2 = st.columns(2)
                 with col1:
-                    prod_vendido = st.selectbox("Escolha o Produto", df_produtos["produto"].tolist())
                     qtd_vendida = st.number_input("Quantidade Vendida", min_value=1, value=1, step=1)
+                    # Campo de preço unitário editável (suporta preço variável do ML ou manual)
+                    preco_unit_custom = st.number_input("Preço Unitário de Venda (R$)", value=preco_sugerido, min_value=0.0, format="%.2f")
                 with col2:
                     data_venda = st.date_input("Data da Venda", datetime.now())
                     forma_pgto = st.selectbox("Forma de Pagamento", ["Mercado Livre", "PIX", "Cartão de Crédito", "Cartão de Débito", "Dinheiro", "Outro"])
                 
                 if st.form_submit_button("Confirmar e Registrar Venda"):
-                    p_info = df_produtos[df_produtos["produto"] == prod_vendido].iloc[0]
-                    
                     nova_venda = {
                         "data": datetime.combine(data_venda, datetime.min.time()).isoformat(),
                         "sku": p_info["sku"],
                         "produto": prod_vendido,
                         "qtd": int(qtd_vendida),
                         "pagamento": forma_pgto,
-                        "preco_unit": float(p_info["preco_venda"]),
+                        "preco_unit": float(preco_unit_custom), # Salva o preço real informado (variável)
                         "custo_unit": float(p_info["custo"]),
-                        "taxa_ml": float(p_info["preco_venda"] * (p_info["taxa_ml"] / 100)) if forma_pgto == "Mercado Livre" else 0.0,
+                        "taxa_ml": float(preco_unit_custom * (p_info["taxa_ml"] / 100)) if forma_pgto == "Mercado Livre" else 0.0,
                         "frete": float(p_info["frete_medio"]) if forma_pgto == "Mercado Livre" else 0.0
                     }
                     
@@ -402,7 +406,7 @@ elif menu == "Registrar Venda":
                         supabase.table("vendas").insert(nova_venda).execute()
                         novo_estoque = int(p_info["estoque"]) - int(qtd_vendida)
                         supabase.table("produtos").update({"estoque": novo_estoque}).eq("sku", p_info["sku"]).execute()
-                        st.success("Venda registrada e estoque atualizado na nuvem!")
+                        st.success("Venda registrada com preço customizado e estoque atualizado na nuvem!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao registrar venda: {e}")
