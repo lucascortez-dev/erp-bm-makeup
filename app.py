@@ -4,15 +4,18 @@ from datetime import datetime, timedelta
 import os
 from supabase import create_client, Client
 
-# Configuração da Conexão com o Supabase (Substitua pelos seus dados)
+# Configuração da Conexão com o Supabase (Certifique-se de usar a URL raiz terminada em .co)
 SUPABASE_URL = "https://gcjyhaamliodpcdphwsg.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MjUzMjQsImV4cCI6MjEwNTEwMTMyNH0.RUbIOfGCS7DxhfRNGLtRogLmhNmjUhLb7GMWF-2jZec"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInI1cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjanloYWFtbGlvZHBjZHBod3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwMzU5ODEsImV4cCI6MjA1NjYxMTk4MX0.RuBIOfGCS7DxhfRNGLtRogLmhNmUhLb7GMWF-8bZSI6ImFub24iLCJPY3A3MiwzMDIzM01Myv4cCI6MjNlNW1TMMyNhQ"
 
 @st.cache_resource
 def init_connection():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    try:
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        return None
 
-supabase: Client = init_connection()
+supabase = init_connection()
 
 # 1. Configuração da Página e Estética Enterprise
 st.set_page_config(
@@ -93,25 +96,33 @@ if not st.session_state.autenticado:
                     st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# Funções de Leitura e Escrita Direta no Supabase
+# Funções de Leitura Protegidas com Tratamento de Erro
 def carregar_produtos():
-    response = supabase.table("produtos").select("*").execute()
-    data = response.data
-    if data:
-        return pd.DataFrame(data)
-    else:
+    if not supabase:
         return pd.DataFrame(columns=["sku", "produto", "custo", "preco_venda", "taxa_ml", "frete_medio", "estoque"])
+    try:
+        response = supabase.table("produtos").select("*").execute()
+        data = response.data
+        if data:
+            return pd.DataFrame(data)
+    except Exception as e:
+        st.warning(f"Aviso de conexão com o banco de produtos: {e}")
+    return pd.DataFrame(columns=["sku", "produto", "custo", "preco_venda", "taxa_ml", "frete_medio", "estoque"])
 
 def carregar_vendas():
-    response = supabase.table("vendas").select("*").execute()
-    data = response.data
-    if data:
-        df = pd.DataFrame(data)
-        if not df.empty and "data" in df.columns:
-            df["data"] = pd.to_datetime(df["data"])
-        return df
-    else:
+    if not supabase:
         return pd.DataFrame(columns=["id", "data", "sku", "produto", "qtd", "pagamento", "preco_unit", "custo_unit", "taxa_ml", "frete"])
+    try:
+        response = supabase.table("vendas").select("*").execute()
+        data = response.data
+        if data:
+            df = pd.DataFrame(data)
+            if not df.empty and "data" in df.columns:
+                df["data"] = pd.to_datetime(df["data"])
+            return df
+    except Exception as e:
+        st.warning(f"Aviso de conexão com o banco de vendas: {e}")
+    return pd.DataFrame(columns=["id", "data", "sku", "produto", "qtd", "pagamento", "preco_unit", "custo_unit", "taxa_ml", "frete"])
 
 # 4. Barra Lateral de Navegação
 st.sidebar.markdown("<h3 style='text-align: center; color: #d91c84; font-size: 22px; margin-top: 10px;'>ERP BM Make Up</h3>", unsafe_allow_html=True)
@@ -240,21 +251,26 @@ elif menu == "Cadastrar / Listar Produtos":
                     "preco_venda": preco_venda, "taxa_ml": taxa_ml, 
                     "frete_medio": frete_medio, "estoque": estoque
                 }
-                supabase.table("produtos").insert(novo_produto).execute()
-                st.success(f"Produto '{nome}' salvo no banco de dados!")
-                st.rerun()
+                try:
+                    supabase.table("produtos").insert(novo_produto).execute()
+                    st.success(f"Produto '{nome}' salvo no banco de dados!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar produto: {e}")
 
     st.subheader("Catálogo de Produtos")
     if not df_produtos.empty:
         st.dataframe(df_produtos, use_container_width=True)
         
-        # Opção de exclusão por SKU
         with st.expander("🗑️ Excluir Produto por SKU"):
             sku_para_excluir = st.selectbox("Selecione o SKU para remover", df_produtos["sku"].tolist())
             if st.button("Excluir Produto Permanentemente"):
-                supabase.table("produtos").delete().eq("sku", sku_para_excluir).execute()
-                st.success("Produto excluído com sucesso!")
-                st.rerun()
+                try:
+                    supabase.table("produtos").delete().eq("sku", sku_para_excluir).execute()
+                    st.success("Produto excluído com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao excluir: {e}")
     else:
         st.info("Nenhum produto cadastrado.")
 
@@ -289,14 +305,14 @@ elif menu == "Registrar Venda":
                         "frete": float(p_info["frete_medio"]) if forma_pgto == "Mercado Livre" else 0.0
                     }
                     
-                    supabase.table("vendas").insert(nova_venda).execute()
-                    
-                    # Atualizar estoque no banco
-                    novo_estoque = int(p_info["estoque"]) - int(qtd_vendida)
-                    supabase.table("produtos").update({"estoque": novo_estoque}).eq("sku", p_info["sku"]).execute()
-                    
-                    st.success("Venda registrada e estoque atualizado na nuvem!")
-                    st.rerun()
+                    try:
+                        supabase.table("vendas").insert(nova_venda).execute()
+                        novo_estoque = int(p_info["estoque"]) - int(qtd_vendida)
+                        supabase.table("produtos").update({"estoque": novo_estoque}).eq("sku", p_info["sku"]).execute()
+                        st.success("Venda registrada e estoque atualizado na nuvem!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao registrar venda: {e}")
 
     st.subheader("Histórico Geral de Vendas")
     if not df_vendas.empty:
@@ -305,9 +321,12 @@ elif menu == "Registrar Venda":
         with st.expander("🗑️ Excluir Venda por ID"):
             id_para_excluir = st.number_input("Digite o ID da venda que deseja apagar", min_value=1, step=1)
             if st.button("Excluir Venda"):
-                supabase.table("vendas").delete().eq("id", id_para_excluir).execute()
-                st.success("Venda removida do histórico!")
-                st.rerun()
+                try:
+                    supabase.table("vendas").delete().eq("id", id_para_excluir).execute()
+                    st.success("Venda removida do histórico!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao excluir: {e}")
     else:
         st.info("O histórico de vendas está vazio.")
 
