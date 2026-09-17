@@ -181,7 +181,7 @@ if st.sidebar.button("📋  Controle de Estoque", use_container_width=True): st.
 # Nova seção para a Integração do Mercado Livre
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;'>Configurações</p>", unsafe_allow_html=True)
-if st.sidebar.button("🔌  Integração Mercado Livre", use_container_width=True): st.session_state.menu_atual = "Integracao ML"; st.rerun()
+if st.sidebar.button("🔌 Integração Mercado Livre":, use_container_width=True): st.session_state.menu_atual = "Integracao ML"; st.rerun()
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪  Sair / Logout", use_container_width=True):
