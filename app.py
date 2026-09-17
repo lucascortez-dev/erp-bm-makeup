@@ -475,7 +475,7 @@ elif menu == "🔌 Integração Mercado Livre":
         # Botão estilizado via HTML seguro com target='_blank' (Abre em nova aba sem conflito)
         st.markdown(f"""
             <div style="margin-top: 20px; margin-bottom: 20px;">
-                <a href="{ml_auth_url}" target="_blank" style="text-decoration: none;">
+                <a href="{ml_auth_url}" target="_blank">
                     <button style="background-color:#ffe600; color:#2d3277; padding:12px 24px; border:none; border-radius:5px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
                         Conectar Conta do Mercado Livre 🔗
                     </button>
