@@ -181,7 +181,7 @@ if st.sidebar.button("📋  Controle de Estoque", use_container_width=True): st.
 # Nova seção para a Integração do Mercado Livre
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;'>Configurações</p>", unsafe_allow_html=True)
-if st.sidebar.button("🔌 Integração Mercado Livre":, use_container_width=True): st.session_state.menu_atual = "Integracao ML"; st.rerun()
+if st.sidebar.button("🔌 Integração Mercado Livre", use_container_width=True): st.session_state.menu_atual = "Integracao ML"; st.rerun()
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪  Sair / Logout", use_container_width=True):
@@ -483,22 +483,24 @@ elif menu == "🔌 Integração Mercado Livre":
             </div>
         """, unsafe_allow_html=True)
 
-    # Captura o código de retorno enviado pelo Mercado Livre após a autorização
-    query_params = st.query_params
-    if "code" in query_params:
-        auth_code = query_params["code"]
-        
-        # Troca o código temporário pelo Access Token definitivo
-        token_url = "https://api.mercadolibre.com/oauth/token"
-        payload = {
-            "grant_type": "authorization_code",
-            "client_id": ML_APP_ID,
-            "client_secret": ML_CLIENT_SECRET,
-            "code": auth_code,
-            "redirect_uri": ML_REDIRECT_URI
-        }
-        
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+   # Captura o código de retorno enviado pelo Mercado Livre com trava anti-loop
+query_params = st.query_params
+if "code" in query_params and not st.session_state.get("code_processed", False):
+    st.session_state["code_processed"] = True
+    auth_code = query_params["code"]
+    
+    # Troca o código temporário pelo Access Token definitivo
+    token_url = "https://api.mercadolibre.com/oauth/token"
+    payload = {
+        "grant_type": "authorization_code",
+    "client_id": ML_APP_ID,
+        "client_secret": ML_CLIENT_SECRET,
+        "code": auth_code,
+        "redirect_uri": ML_REDIRECT_URI
+    }
+    
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    try:
         response = requests.post(token_url, data=payload, headers=headers)
         
         if response.status_code == 200:
@@ -517,3 +519,5 @@ elif menu == "🔌 Integração Mercado Livre":
             st.rerun()
         else:
             st.error(f"Erro ao autenticar com o Mercado Livre: {response.text}")
+    except Exception as e:
+        st.error(f"Erro de conexão na requisição do token: {e}")
