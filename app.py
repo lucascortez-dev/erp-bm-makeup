@@ -472,8 +472,15 @@ elif menu == "🔌 Integração Mercado Livre":
         # URL de Autenticação Oficial
         ml_auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={ML_APP_ID}&redirect_uri={ML_REDIRECT_URI}"
 
-        # Botão Nativo Oficial do Streamlit (Abre em nova aba sem erro de conexão)
-        st.link_button("Conectar Conta do Mercado Livre", ml_auth_url, type="primary")
+        st.markdown(f"""
+            <br>
+            <a href="{ml_auth_url}" target="_self">
+                <button style="background-color:#ffe600; color:#2d3277; padding:12px 24px; border:none; border-radius:5px; font-weight:bold; font-size:16px; cursor:pointer;">
+                    Conectar Conta do Mercado Livre
+                </button>
+            </a>
+            <br><br>
+        """, unsafe_allow_html=True)
 
     # Captura o código de retorno enviado pelo Mercado Livre após a autorização
     query_params = st.query_params
