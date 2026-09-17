@@ -468,120 +468,108 @@ elif menu == "Integracao ML":
         
         st.markdown("---")
         st.subheader("🔄 Sincronização Automática com o ERP")
-        st.write("Clique abaixo para puxar o catálogo e as vendas do Mercado Livre com diagnóstico em tempo real.")
 
         col_sync1, col_sync2 = st.columns(2)
-        
         headers = {"Authorization": f"Bearer {access_token}"}
         
         # -------------------------------------------------------------
-        # 1. SINCRONIZAÇÃO DE PRODUTOS
+        # 1. SINCRONIZAÇÃO DE PRODUTOS (Blindada)
         # -------------------------------------------------------------
         with col_sync1:
             if st.button("📦 Sincronizar Produtos", use_container_width=True):
-                with st.spinner("Consultando produtos na API do ML..."):
-                    # Descobre o ID do usuário logado
+                with st.spinner("Sincronizando produtos com o Supabase..."):
                     user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
                     
                     if user_resp.status_code == 200:
-                        user_data = user_resp.json()
-                        user_id = user_data.get("id")
-                        st.write(f"ID do Vendedor no ML: `{user_id}`")
-                        
-                        # Busca a lista de IDs dos produtos
+                        user_id = user_resp.json().get("id")
                         items_resp = requests.get(f"https://api.mercadolibre.com/users/{user_id}/items/search", headers=headers)
-                        st.write(f"Status da busca de itens: `{items_resp.status_code}`")
                         
                         if items_resp.status_code == 200:
-                            items_json = items_resp.json()
-                            item_ids = items_json.get("results", [])
-                            st.write(f"IDs encontrados: {item_ids}")
+                            item_ids = items_resp.json().get("results", [])
+                            produtos_salvos = 0
                             
-                            if len(item_ids) == 0:
-                                st.warning("⚠️ A API retornou 0 produtos ativos para esta conta do Mercado Libre.")
-                            else:
-                                produtos_salvos = 0
-                                for item_id in item_ids:
-                                    detail_resp = requests.get(f"https://api.mercadolibre.com/items/{item_id}", headers=headers)
-                                    if detail_resp.status_code == 200:
-                                        prod = detail_resp.json()
-                                        supabase.table("produtos").upsert({
-                                            "ml_id": prod.get("id"),
-                                            "titulo": prod.get("title"),
-                                            "preco": prod.get("price", 0.0),
-                                            "estoque": prod.get("available_quantity", 0),
-                                            "link": prod.get("permalink")
-                                        }, on_conflict="ml_id").execute()
+                            for item_id in item_ids:
+                                detail_resp = requests.get(f"https://api.mercadolibre.com/items/{item_id}", headers=headers)
+                                if detail_resp.status_code == 200:
+                                    prod = detail_resp.json()
+                                    
+                                    payload_prod = {
+                                        "ml_id": prod.get("id"),
+                                        "titulo": prod.get("title"),
+                                        "preco": prod.get("price", 0.0),
+                                        "estoque": prod.get("available_quantity", 0),
+                                        "link": prod.get("permalink")
+                                    }
+                                    
+                                    try:
+                                        # Tenta inserir de forma segura
+                                        supabase.table("produtos").insert(payload_prod).execute()
                                         produtos_salvos += 1
-                                st.success(f"Sucesso! {produtos_salvos} produtos salvos no Supabase.")
+                                    except Exception:
+                                        # Se já existir, faz o update para atualizar preço e estoque
+                                        try:
+                                            supabase.table("produtos").update({
+                                                "titulo": prod.get("title"),
+                                                "preco": prod.get("price", 0.0),
+                                                "estoque": prod.get("available_quantity", 0),
+                                                "link": prod.get("permalink")
+                                            }).eq("ml_id", prod.get("id")).execute()
+                                            produtos_salvos += 1
+                                        except Exception:
+                                            pass
+                                            
+                            st.success(f"Sucesso! {produtos_salvos} produtos foram sincronizados no ERP.")
                         else:
                             st.error(f"Erro ao buscar itens: {items_resp.text}")
                     else:
                         st.error(f"Erro ao identificar usuário: {user_resp.text}")
 
         # -------------------------------------------------------------
-        # 2. SINCRONIZAÇÃO DE VENDAS
+        # 2. SINCRONIZAÇÃO DE VENDAS (Blindada)
         # -------------------------------------------------------------
         with col_sync2:
             if st.button("🛒 Sincronizar Vendas", use_container_width=True):
-                with st.spinner("Consultando pedidos na API do ML..."):
+                with st.spinner("Sincronizando vendas com o Supabase..."):
                     user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
                     
                     if user_resp.status_code == 200:
                         user_id = user_resp.json().get("id")
-                        
-                        # Busca pedidos recentes do vendedor
                         orders_resp = requests.get(f"https://api.mercadolibre.com/orders/search?seller={user_id}", headers=headers)
-                        st.write(f"Status da busca de pedidos: `{orders_resp.status_code}`")
                         
                         if orders_resp.status_code == 200:
-                            orders_json = orders_resp.json()
-                            orders_list = orders_json.get("results", [])
-                            st.write(f"Total de pedidos retornados pela API: {len(orders_list)}")
+                            orders_list = orders_resp.json().get("results", [])
+                            vendas_salvas = 0
                             
-                            if len(orders_list) == 0:
-                                st.warning("⚠️ A API retornou 0 vendas para esta conta (verifique se há vendas recentes ou se a conta é nova/teste).")
-                            else:
-                                vendas_salvas = 0
-                                for order in orders_list:
-                                    order_id = str(order.get("id"))
-                                    supabase.table("vendas").upsert({
-                                        "order_id": order_id,
-                                        "valor_total": order.get("total_amount", 0.0),
-                                        "status": order.get("status", "desconhecido"),
-                                        "data_venda": order.get("date_closed"),
-                                        "cliente": order.get("buyer", {}).get("nickname", "Cliente ML")
-                                    }, on_conflict="order_id").execute()
+                            for order in orders_list:
+                                order_id = str(order.get("id"))
+                                payload_venda = {
+                                    "order_id": order_id,
+                                    "valor_total": order.get("total_amount", 0.0),
+                                    "status": order.get("status", "desconhecido"),
+                                    "data_venda": order.get("date_closed"),
+                                    "cliente": order.get("buyer", {}).get("nickname", "Cliente ML")
+                                }
+                                
+                                try:
+                                    supabase.table("vendas").insert(payload_venda).execute()
                                     vendas_salvas += 1
-                                st.success(f"Sucesso! {vendas_salvas} vendas registradas no ERP.")
+                                except Exception:
+                                    try:
+                                        supabase.table("vendas").update({
+                                            "valor_total": order.get("total_amount", 0.0),
+                                            "status": order.get("status", "desconhecido"),
+                                            "data_venda": order.get("date_closed"),
+                                            "cliente": order.get("buyer", {}).get("nickname", "Cliente ML")
+                                        }).eq("order_id", order_id).execute()
+                                        vendas_salvas += 1
+                                    except Exception:
+                                        pass
+                                        
+                            st.success(f"Sucesso! {vendas_salvas} vendas foram registradas no ERP.")
                         else:
                             st.error(f"Erro ao buscar pedidos: {orders_resp.text}")
                     else:
                         st.error(f"Erro ao identificar usuário: {user_resp.text}")
-
-        with col_sync2:
-            if st.button("🛒 Puxar Vendas Recentes", use_container_width=True):
-                headers = {"Authorization": f"Bearer {access_token}"}
-                user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
-                
-                if user_resp.status_code == 200:
-                    user_id = user_resp.json().get("id")
-                    
-                    # Busca pedidos/vendas do vendedor
-                    orders_resp = requests.get(f"https://api.mercadolibre.com/orders/search?seller={user_id}", headers=headers)
-                    if orders_resp.status_code == 200:
-                        orders = orders_resp.json().get("results", [])
-                        st.success(f"Sucesso! Encontradas {len(orders)} vendas recentes.")
-                        
-                        if orders:
-                            st.write("### Últimas Vendas:")
-                            for order in orders[:5]:
-                                order_id = order.get("id")
-                                total = order.get("total_amount")
-                                status = order.get("status")
-                                st.write(f"- **Pedido #{order_id}** | Status: `{status}` | Valor: R$ {total}")
-                    else:
-                        st.error(f"Erro ao buscar pedidos: {orders_resp.text}")
 
         st.markdown("---")
         if st.button("Desconectar Conta", type="secondary"):
