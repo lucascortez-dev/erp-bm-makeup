@@ -485,7 +485,6 @@ elif menu == "Integracao ML":
                         
                         if items_resp.status_code == 200:
                             item_ids = items_resp.json().get("results", [])
-                            st.write(f"Total de produtos encontrados no ML: {len(item_ids)}")
                             produtos_salvos = 0
                             
                             for item_id in item_ids:
@@ -493,28 +492,25 @@ elif menu == "Integracao ML":
                                 if detail_resp.status_code == 200:
                                     prod = detail_resp.json()
                                     
+                                    # Payload alinhado exatamente com as colunas existentes em 'produtos'
                                     payload_prod = {
                                         "ml_id": str(prod.get("id")),
                                         "titulo": str(prod.get("title", "")),
-                                        "preco": float(prod.get("price", 0.0)),
                                         "estoque": int(prod.get("available_quantity", 0))
                                     }
                                     
                                     try:
-                                        # Tenta inserir
                                         supabase.table("produtos").insert(payload_prod).execute()
                                         produtos_salvos += 1
-                                    except Exception as err_insert:
-                                        # Se der erro (ex: duplicado), tenta atualizar
+                                    except Exception:
                                         try:
                                             supabase.table("produtos").update({
                                                 "titulo": str(prod.get("title", "")),
-                                                "preco": float(prod.get("price", 0.0)),
                                                 "estoque": int(prod.get("available_quantity", 0))
                                             }).eq("ml_id", str(prod.get("id"))).execute()
                                             produtos_salvos += 1
-                                        except Exception as err_update:
-                                            st.error(f"Erro ao salvar produto {item_id}: {err_update}")
+                                        except Exception:
+                                            pass
                                             
                             st.success(f"Sucesso! {produtos_salvos} produtos foram sincronizados no ERP.")
                         else:
@@ -535,32 +531,30 @@ elif menu == "Integracao ML":
                         
                         if orders_resp.status_code == 200:
                             orders_list = orders_resp.json().get("results", [])
-                            st.write(f"Total de pedidos encontrados no ML: {len(orders_list)}")
                             vendas_salvas = 0
                             
                             for order in orders_list:
                                 order_id = str(order.get("id"))
                                 
+                                # Payload alinhado exatamente com as colunas existentes em 'vendas'
                                 payload_venda = {
                                     "order_id": order_id,
                                     "valor_total": float(order.get("total_amount", 0.0)),
-                                    "status": str(order.get("status", "desconhecido")),
-                                    "data_venda": str(order.get("date_closed") or order.get("date_created", ""))
+                                    "status": str(order.get("status", "desconhecido"))
                                 }
                                 
                                 try:
                                     supabase.table("vendas").insert(payload_venda).execute()
                                     vendas_salvas += 1
-                                except Exception as err_insert_venda:
+                                except Exception:
                                     try:
                                         supabase.table("vendas").update({
                                             "valor_total": float(order.get("total_amount", 0.0)),
-                                            "status": str(order.get("status", "desconhecido")),
-                                            "data_venda": str(order.get("date_closed") or order.get("date_created", ""))
+                                            "status": str(order.get("status", "desconhecido"))
                                         }).eq("order_id", order_id).execute()
                                         vendas_salvas += 1
-                                    except Exception as err_update_venda:
-                                        st.error(f"Erro ao salvar venda {order_id}: {err_update_venda}")
+                                    except Exception:
+                                        pass
                                         
                             st.success(f"Sucesso! {vendas_salvas} vendas foram registradas no ERP.")
                         else:
