@@ -438,7 +438,7 @@ elif menu == "Controle de Estoque":
 # -------------------------------------------------------------
 # ABA: INTEGRAÇÃO MERCADO LIVRE
 # -------------------------------------------------------------
-elif "Mercado" in menu:
+elif menu == "Integracao ML":
     st.title("Integração Oficial - Mercado Livre")
     
     # Pega as chaves do cofre do Streamlit
