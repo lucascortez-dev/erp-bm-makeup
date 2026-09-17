@@ -435,26 +435,53 @@ elif menu == "Controle de Estoque":
     else:
         st.info("Estoque vazio.")
 
-# ==========================================
-# NOVA ABA: INTEGRAÇÃO MERCADO LIVRE
-# ==========================================
-elif menu == "Integracao ML":
-    exibir_headline("Integração Mercado Livre", "Conecte sua conta no modo leitura (espelho) com segurança oficial.")
+# -------------------------------------------------------------
+# ABA: INTEGRAÇÃO MERCADO LIVRE
+# -------------------------------------------------------------
+elif menu == "🔌 Integração Mercado Livre":
+    st.title("Integração Oficial - Mercado Livre")
     
+    # Pega as chaves do cofre do Streamlit
     try:
         ML_APP_ID = st.secrets["ML_APP_ID"]
         ML_CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
         ML_REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
-    except Exception:
-        st.error("⚠️ As chaves do Mercado Livre (ML_APP_ID, ML_CLIENT_SECRET, ML_REDIRECT_URI) não foram encontradas no Cofre do Streamlit (Secrets). Por favor, configure-as antes de prosseguir.")
+    except Exception as e:
+        st.error(f"Erro ao carregar as chaves do Mercado Livre no st.secrets: {e}")
         st.stop()
 
-    # Capturar o Código de Autorização retornado na URL após login no Mercado Livre
-    if "code" in st.query_params:
-        auth_code = st.query_params["code"]
-        st.info("Processando autorização segura com o Mercado Livre...")
+    # Verifica se já existe um token salvo no Supabase
+    try:
+        response = supabase.table("ml_tokens").select("*").execute()
+        tokens_data = response.data
+    except Exception:
+        tokens_data = []
+
+    is_connected = len(tokens_data) > 0
+
+    if is_connected:
+        st.success("🟢 STATUS: Conectado ao Mercado Livre com Sucesso!")
+        st.write("Seu ERP está pronto para sincronizar dados e ler o catálogo com total segurança.")
+        if st.button("Desconectar Conta"):
+            supabase.table("ml_tokens").delete().neq("id", 0).execute()
+            st.rerun()
+    else:
+        st.warning("🟡 STATUS: Desconectado. Nenhuma credencial encontrada.")
+        st.write("Para iniciar, clique no botão abaixo para abrir a página de autorização do Mercado Livre.")
+
+        # URL de Autenticação Oficial
+        ml_auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={ML_APP_ID}&redirect_uri={ML_REDIRECT_URI}"
+
+        # Botão Nativo com Link Direto (Evita bloqueios de iframe/html do navegador)
+        st.link_button("Conectar Conta do Mercado Livre", ml_auth_url, type="primary")
+
+    # Captura o código de retorno enviado pelo Mercado Livre após a autorização
+    query_params = st.query_params
+    if "code" in query_params:
+        auth_code = query_params["code"]
         
-        url_token = "https://api.mercadolibre.com/oauth/token"
+        # Troca o código temporário pelo Access Token definitivo
+        token_url = "https://api.mercadolibre.com/oauth/token"
         payload = {
             "grant_type": "authorization_code",
             "client_id": ML_APP_ID,
@@ -462,50 +489,23 @@ elif menu == "Integracao ML":
             "code": auth_code,
             "redirect_uri": ML_REDIRECT_URI
         }
-        headers = {"accept": "application/json", "content-type": "application/x-www-form-urlencoded"}
         
-        try:
-            resposta = requests.post(url_token, data=payload, headers=headers)
-            if resposta.status_code == 200:
-                tokens = resposta.json()
-                # Salvar os tokens gerados no banco de dados
-                supabase.table("ml_tokens").delete().neq("access_token", "dummy").execute()
-                supabase.table("ml_tokens").insert({"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"]}).execute()
-                
-                # Limpar a URL para não refazer a requisição ao dar F5
-                del st.query_params["code"]
-                st.success("✅ Conexão estabelecida com sucesso! O token foi salvo com segurança no banco de dados.")
-                st.rerun()
-            else:
-                st.error(f"Falha na autorização. Erro: {resposta.text}")
-        except Exception as e:
-            st.error(f"Erro de conexão com a API: {e}")
-
-    # Verificar no Supabase se já existe uma conexão ativa
-    try:
-        resp_db = supabase.table("ml_tokens").select("*").execute()
-        tem_token = len(resp_db.data) > 0
-    except:
-        tem_token = False
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Interface Principal da Aba de Integração
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        if tem_token:
-            st.success("🟢 STATUS: Conectado ao Mercado Livre.")
-            st.markdown("O seu ERP possui credencial de leitura ativa. O sistema agora está pronto para consultar e espelhar vendas e estoques reais do Mercado Livre.")
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        response = requests.post(token_url, data=payload, headers=headers)
+        
+        if response.status_code == 200:
+            token_json = response.json()
+            access_token = token_json.get("access_token")
+            refresh_token = token_json.get("refresh_token")
             
-            if st.button("Desconectar Conta (Revogar Acesso)", type="secondary"):
-                supabase.table("ml_tokens").delete().neq("access_token", "dummy").execute()
-                st.warning("Conexão revogada com sucesso.")
-                st.rerun()
+            # Salva os tokens de forma segura no Supabase
+            supabase.table("ml_tokens").insert({
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            }).execute()
+            
+            st.success("Conta conectada e tokens salvos com sucesso!")
+            st.query_params.clear()
+            st.rerun()
         else:
-            st.warning("🔴 STATUS: Desconectado. Nenhuma credencial encontrada.")
-            st.markdown("Para iniciar, clique no botão abaixo. Você será levado ao Mercado Livre para aprovar a permissão de leitura, e retornará automaticamente para o seu ERP.")
-            
-            link_auth = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={ML_APP_ID}&redirect_uri={ML_REDIRECT_URI}"
-            
-            # Botão visual de link que redireciona para a página do ML
-            st.markdown(f'<a href="{link_auth}" target="_self" style="display: inline-block; padding: 12px 24px; background-color: #ffe600; color: #2d3277; text-decoration: none; border-radius: 8px; font-weight: bold; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 15px; transition: 0.2s;">Conectar Conta do Mercado Livre</a>', unsafe_allow_html=True)
+            st.error(f"Erro ao autenticar com o Mercado Livre: {response.text}")
