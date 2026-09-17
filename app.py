@@ -39,48 +39,34 @@ def check_login():
 if not check_login():
     st.stop()
 
-# Menu Lateral Completo e Organizado
+# Menu Lateral Unificado e Estável
 st.sidebar.image("logo.png", width=150) if "logo.png" in locals() else None
 st.sidebar.title("ERP BM Make Up")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**NAVEGAÇÃO PRINCIPAL**")
+
 menu = st.sidebar.radio(
-    "Escolha uma opção",
+    "Menu",
     [
         "📊 Dashboard Executivo",
         "📦 Gerenciar Produtos",
         "🛒 Registrar Venda",
         "💡 Simulador de Lucro",
-        "📋 Controle de Estoque"
-    ],
-    label_visibility="collapsed"
+        "📋 Controle de Estoque",
+        "🔌 Integração Mercado Livre"
+    ]
 )
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("**CONFIGURAÇÕES**")
-if st.sidebar.button("🔌 Integração Mercado Livre", use_container_width=True):
-    st.session_state["menu_opcao"] = "Integração Mercado Livre"
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Sair / Logout", use_container_width=True):
     st.session_state["authenticated"] = False
     st.rerun()
 
-# Controla a aba ativa baseada no menu lateral
-if "menu_opcao" not in st.session_state:
-    st.session_state["menu_opcao"] = menu
-else:
-    # Se o usuário clicou no rádio, atualiza
-    if menu != st.session_state["menu_opcao"] and menu in ["📊 Dashboard Executivo", "📦 Gerenciar Produtos", "🛒 Registrar Venda", "💡 Simulador de Lucro", "📋 Controle de Estoque"]:
-        st.session_state["menu_opcao"] = menu
-
-aba_ativa = st.session_state["menu_opcao"]
-
 # -------------------------------------------------------------
 # ABA: DASHBOARD EXECUTIVO
 # -------------------------------------------------------------
-if aba_ativa == "📊 Dashboard Executivo":
+if menu == "📊 Dashboard Executivo":
     st.title("📊 Dashboard Executivo - Bmakeup")
     st.info("Bem-vindo ao painel gerencial do seu ERP!")
     
@@ -92,35 +78,35 @@ if aba_ativa == "📊 Dashboard Executivo":
 # -------------------------------------------------------------
 # ABA: GERENCIAR PRODUTOS
 # -------------------------------------------------------------
-elif aba_ativa == "📦 Gerenciar Produtos":
+elif menu == "📦 Gerenciar Produtos":
     st.title("📦 Gestão de Produtos")
     st.write("Aqui você visualiza e gerencia o catálogo do seu ERP.")
 
 # -------------------------------------------------------------
 # ABA: REGISTRAR VENDA
 # -------------------------------------------------------------
-elif aba_ativa == "🛒 Registrar Venda":
+elif menu == "🛒 Registrar Venda":
     st.title("🛒 Registrar Nova Venda")
     st.write("Lançamento de vendas e baixa de estoque.")
 
 # -------------------------------------------------------------
 # ABA: SIMULADOR DE LUCRO
 # -------------------------------------------------------------
-elif aba_ativa == "💡 Simulador de Lucro":
+elif menu == "💡 Simulador de Lucro":
     st.title("💡 Simulador de Lucro e Precificação")
     st.write("Calcule margens e tarifas com precisão.")
 
 # -------------------------------------------------------------
 # ABA: CONTROLE DE ESTOQUE
 # -------------------------------------------------------------
-elif aba_ativa == "📋 Controle de Estoque":
+elif menu == "📋 Controle de Estoque":
     st.title("📋 Controle e Movimentação de Estoque")
     st.write("Acompanhe o fluxo de mercadorias.")
 
 # -------------------------------------------------------------
 # ABA: INTEGRAÇÃO MERCADO LIVRE
 # -------------------------------------------------------------
-elif aba_ativa == "Integração Mercado Livre":
+elif menu == "🔌 Integração Mercado Livre":
     st.title("Integração Oficial - Mercado Livre")
     
     # Pega as chaves do cofre do Streamlit
