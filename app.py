@@ -467,28 +467,28 @@ elif menu == "Integracao ML":
         access_token = tokens_data[0].get("access_token")
         
         st.markdown("---")
-        st.subheader("🔄 Sincronização Automática com o ERP")
+        st.subheader("🔄 Sincronização com Diagnóstico de Erro")
 
         col_sync1, col_sync2 = st.columns(2)
         headers = {"Authorization": f"Bearer {access_token}"}
         
         # -------------------------------------------------------------
-        # 1. SINCRONIZAÇÃO DE PRODUTOS (Blindada)
+        # 1. SINCRONIZAÇÃO DE PRODUTOS
         # -------------------------------------------------------------
         with col_sync1:
-            if st.button("📦 Sincronizar Produtos", use_container_width=True):
-                with st.spinner("Sincronizando produtos com o Supabase..."):
+            if st.button("📦 Sincronizar Produtos (Com Log)", use_container_width=True):
+                with st.spinner("Sincronizando..."):
                     user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
-                    
                     if user_resp.status_code == 200:
                         user_id = user_resp.json().get("id")
                         items_resp = requests.get(f"https://api.mercadolibre.com/users/{user_id}/items/search", headers=headers)
                         
                         if items_resp.status_code == 200:
                             item_ids = items_resp.json().get("results", [])
+                            st.write(f"Total de IDs na API do ML: {len(item_ids)}")
                             produtos_salvos = 0
                             
-                            for item_id in item_ids:
+                            for item_id in item_ids[:5]: # Testa com os 5 primeiros para ver o log
                                 detail_resp = requests.get(f"https://api.mercadolibre.com/items/{item_id}", headers=headers)
                                 if detail_resp.status_code == 200:
                                     prod = detail_resp.json()
@@ -502,42 +502,29 @@ elif menu == "Integracao ML":
                                     }
                                     
                                     try:
-                                        # Tenta inserir de forma segura
                                         supabase.table("produtos").insert(payload_prod).execute()
                                         produtos_salvos += 1
-                                    except Exception:
-                                        # Se já existir, faz o update para atualizar preço e estoque
-                                        try:
-                                            supabase.table("produtos").update({
-                                                "titulo": prod.get("title"),
-                                                "preco": prod.get("price", 0.0),
-                                                "estoque": prod.get("available_quantity", 0),
-                                                "link": prod.get("permalink")
-                                            }).eq("ml_id", prod.get("id")).execute()
-                                            produtos_salvos += 1
-                                        except Exception:
-                                            pass
-                                            
-                            st.success(f"Sucesso! {produtos_salvos} produtos foram sincronizados no ERP.")
+                                    except Exception as db_error:
+                                        st.error(f"Erro do Supabase ao salvar produto {item_id}: {db_error}")
+                                        
+                            st.success(f"Tentativa concluída. Produtos salvos com sucesso nesta amostra: {produtos_salvos}")
                         else:
                             st.error(f"Erro ao buscar itens: {items_resp.text}")
-                    else:
-                        st.error(f"Erro ao identificar usuário: {user_resp.text}")
 
         # -------------------------------------------------------------
-        # 2. SINCRONIZAÇÃO DE VENDAS (Blindada)
+        # 2. SINCRONIZAÇÃO DE VENDAS
         # -------------------------------------------------------------
         with col_sync2:
-            if st.button("🛒 Sincronizar Vendas", use_container_width=True):
-                with st.spinner("Sincronizando vendas com o Supabase..."):
+            if st.button("🛒 Sincronizar Vendas (Com Log)", use_container_width=True):
+                with st.spinner("Sincronizando..."):
                     user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
-                    
                     if user_resp.status_code == 200:
                         user_id = user_resp.json().get("id")
                         orders_resp = requests.get(f"https://api.mercadolibre.com/orders/search?seller={user_id}", headers=headers)
                         
                         if orders_resp.status_code == 200:
                             orders_list = orders_resp.json().get("results", [])
+                            st.write(f"Total de pedidos retornados pela API de vendas: {len(orders_list)}")
                             vendas_salvas = 0
                             
                             for order in orders_list:
@@ -553,23 +540,12 @@ elif menu == "Integracao ML":
                                 try:
                                     supabase.table("vendas").insert(payload_venda).execute()
                                     vendas_salvas += 1
-                                except Exception:
-                                    try:
-                                        supabase.table("vendas").update({
-                                            "valor_total": order.get("total_amount", 0.0),
-                                            "status": order.get("status", "desconhecido"),
-                                            "data_venda": order.get("date_closed"),
-                                            "cliente": order.get("buyer", {}).get("nickname", "Cliente ML")
-                                        }).eq("order_id", order_id).execute()
-                                        vendas_salvas += 1
-                                    except Exception:
-                                        pass
-                                        
-                            st.success(f"Sucesso! {vendas_salvas} vendas foram registradas no ERP.")
+                                except Exception as db_error:
+                                    st.error(f"Erro do Supabase ao salvar pedido {order_id}: {db_error}")
+                                    
+                            st.success(f"Tentativa concluída. Vendas salvas: {vendas_salvas}")
                         else:
                             st.error(f"Erro ao buscar pedidos: {orders_resp.text}")
-                    else:
-                        st.error(f"Erro ao identificar usuário: {user_resp.text}")
 
         st.markdown("---")
         if st.button("Desconectar Conta", type="secondary"):
