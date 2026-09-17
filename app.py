@@ -39,69 +39,36 @@ def check_login():
 if not check_login():
     st.stop()
 
-# Menu Lateral Unificado e Estável
+# Menu Lateral
 st.sidebar.image("logo.png", width=150) if "logo.png" in locals() else None
-st.sidebar.title("ERP BM Make Up")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("**NAVEGAÇÃO PRINCIPAL**")
-
-menu = st.sidebar.radio(
-    "Menu",
-    [
-        "📊 Dashboard Executivo",
-        "📦 Gerenciar Produtos",
-        "🛒 Registrar Venda",
-        "💡 Simulador de Lucro",
-        "📋 Controle de Estoque",
-        "🔌 Integração Mercado Livre"
-    ]
-)
-
-st.sidebar.markdown("---")
-if st.sidebar.button("🚪 Sair / Logout", use_container_width=True):
-    st.session_state["authenticated"] = False
-    st.rerun()
+st.sidebar.title("Menu Principal")
+menu = st.sidebar.radio("Navegação", ["Painel Geral", "Produtos", "Vendas", "🔌 Integração Mercado Livre"])
 
 # -------------------------------------------------------------
-# ABA: DASHBOARD EXECUTIVO
+# ABA: PAINEL GERAL
 # -------------------------------------------------------------
-if menu == "📊 Dashboard Executivo":
-    st.title("📊 Dashboard Executivo - Bmakeup")
-    st.info("Bem-vindo ao painel gerencial do seu ERP!")
+if menu == "Painel Geral":
+    st.title("📊 Painel Geral - Bmakeup")
+    st.info("Bem-vindo ao seu ERP otimizado e seguro!")
     
     col1, col2, col3 = st.columns(3)
     col1.metric("Produtos Cadastrados", "---")
     col2.metric("Vendas Hoje", "R$ 0,00")
-    col3.metric("Status da Integração ML", "Verificado")
+    col3.metric("Status da Integração ML", "Verificando...")
 
 # -------------------------------------------------------------
-# ABA: GERENCIAR PRODUTOS
+# ABA: PRODUTOS
 # -------------------------------------------------------------
-elif menu == "📦 Gerenciar Produtos":
+elif menu == "Produtos":
     st.title("📦 Gestão de Produtos")
-    st.write("Aqui você visualiza e gerencia o catálogo do seu ERP.")
+    st.write("Aqui você visualiza e gerencia o estoque do seu ERP.")
 
 # -------------------------------------------------------------
-# ABA: REGISTRAR VENDA
+# ABA: VENDAS
 # -------------------------------------------------------------
-elif menu == "🛒 Registrar Venda":
-    st.title("🛒 Registrar Nova Venda")
-    st.write("Lançamento de vendas e baixa de estoque.")
-
-# -------------------------------------------------------------
-# ABA: SIMULADOR DE LUCRO
-# -------------------------------------------------------------
-elif menu == "💡 Simulador de Lucro":
-    st.title("💡 Simulador de Lucro e Precificação")
-    st.write("Calcule margens e tarifas com precisão.")
-
-# -------------------------------------------------------------
-# ABA: CONTROLE DE ESTOQUE
-# -------------------------------------------------------------
-elif menu == "📋 Controle de Estoque":
-    st.title("📋 Controle e Movimentação de Estoque")
-    st.write("Acompanhe o fluxo de mercadorias.")
+elif menu == "Vendas":
+    st.title("🛒 Histórico de Vendas")
+    st.write("Acompanhe as vendas realizadas.")
 
 # -------------------------------------------------------------
 # ABA: INTEGRAÇÃO MERCADO LIVRE
@@ -135,13 +102,20 @@ elif menu == "🔌 Integração Mercado Livre":
             st.rerun()
     else:
         st.warning("🟡 STATUS: Desconectado. Nenhuma credencial encontrada.")
-        st.write("Para iniciar, clique no botão abaixo para abrir a página de autorização do Mercado Livre.")
+        st.write("Para iniciar, clique no botão abaixo. Você será levado ao Mercado Livre para aprovar a permissão de leitura, e retornará automaticamente para o seu ERP.")
 
-        # URL de Autenticação Oficial
+        # URL de Autenticação Blindada e Corrigida com https://
         ml_auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={ML_APP_ID}&redirect_uri={ML_REDIRECT_URI}"
 
-        # Botão Nativo com Link Direto Seguro
-        st.link_button("Conectar Conta do Mercado Livre", ml_auth_url, type="primary")
+        st.markdown(f"""
+            <br>
+            <a href="{ml_auth_url}" target="_self">
+                <button style="background-color:#ffe600; color:#2d3277; padding:12px 24px; border:none; border-radius:5px; font-weight:bold; font-size:16px; cursor:pointer;">
+                    Conectar Conta do Mercado Livre
+                </button>
+            </a>
+            <br><br>
+        """, unsafe_allow_html=True)
 
     # Captura o código de retorno enviado pelo Mercado Livre após a autorização
     query_params = st.query_params
