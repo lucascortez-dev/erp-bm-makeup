@@ -472,6 +472,9 @@ elif menu == "Integracao ML":
        # URL de Autenticação Oficial (Confirme se o endereço base é o do Mercado Libre)
         ml_auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={ML_APP_ID}&redirect_uri={ML_REDIRECT_URI}"
 
+       # 🔍 LINHA DE DIAGNÓSTICO TEMPORÁRIA:
+        st.code(ml_auth_url)
+
         # Botão estilizado abrindo a URL correta em nova aba
         st.markdown(f"""
             <div style="margin-top: 20px; margin-bottom: 20px;">
