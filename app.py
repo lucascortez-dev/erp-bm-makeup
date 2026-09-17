@@ -518,25 +518,30 @@ elif menu == "Integracao ML":
                         else:
                             st.error(f"Erro ao buscar itens: {items_resp.text}")
 
-        # -------------------------------------------------------------
-        # 2. SINCRONIZAÇÃO DE VENDAS
+       # -------------------------------------------------------------
+        # 2. SINCRONIZAÇÃO DE VENDAS (Com Inspeção Bruta)
         # -------------------------------------------------------------
         with col_sync2:
             if st.button("🛒 Sincronizar Vendas", use_container_width=True):
-                with st.spinner("Sincronizando vendas..."):
+                with st.spinner("Buscando vendas na API do ML..."):
                     user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
                     if user_resp.status_code == 200:
                         user_id = user_resp.json().get("id")
+                        
+                        # Busca pedidos do vendedor
                         orders_resp = requests.get(f"https://api.mercadolibre.com/orders/search?seller={user_id}", headers=headers)
                         
                         if orders_resp.status_code == 200:
-                            orders_list = orders_resp.json().get("results", [])
+                            data_json = orders_resp.json()
+                            
+                            # 🔍 Mostra na tela exatamente o que o Mercado Libre respondeu
+                            st.write("Resposta bruta da API de Vendas do ML:", data_json)
+                            
+                            orders_list = data_json.get("results", [])
                             vendas_salvas = 0
                             
                             for order in orders_list:
                                 order_id = str(order.get("id"))
-                                
-                                # Payload ajustado apenas com as colunas reais da tabela vendas
                                 payload_venda = {
                                     "order_id": order_id,
                                     "valor_total": order.get("total_amount", 0.0),
@@ -549,7 +554,7 @@ elif menu == "Integracao ML":
                                     vendas_salvas += 1
                                 except Exception:
                                     try:
-                                        supabase.table("vendas").update({
+                                        supabase.table(vendas).update({
                                             "valor_total": order.get("total_amount", 0.0),
                                             "status": order.get("status", "desconhecido"),
                                             "data_venda": order.get("date_closed")
@@ -558,42 +563,10 @@ elif menu == "Integracao ML":
                                     except Exception:
                                         pass
                                         
-                            st.success(f"Sucesso! {vendas_salvas} vendas foram registradas no ERP.")
-                        else:
-                            st.error(f"Erro ao buscar pedidos: {orders_resp.text}")
-        # -------------------------------------------------------------
-        # 2. SINCRONIZAÇÃO DE VENDAS
-        # -------------------------------------------------------------
-        with col_sync2:
-            if st.button("🛒 Sincronizar Vendas (Com Log)", use_container_width=True):
-                with st.spinner("Sincronizando..."):
-                    user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
-                    if user_resp.status_code == 200:
-                        user_id = user_resp.json().get("id")
-                        orders_resp = requests.get(f"https://api.mercadolibre.com/orders/search?seller={user_id}", headers=headers)
-                        
-                        if orders_resp.status_code == 200:
-                            orders_list = orders_resp.json().get("results", [])
-                            st.write(f"Total de pedidos retornados pela API de vendas: {len(orders_list)}")
-                            vendas_salvas = 0
-                            
-                            for order in orders_list:
-                                order_id = str(order.get("id"))
-                                payload_venda = {
-                                    "order_id": order_id,
-                                    "valor_total": order.get("total_amount", 0.0),
-                                    "status": order.get("status", "desconhecido"),
-                                    "data_venda": order.get("date_closed"),
-                                    "cliente": order.get("buyer", {}).get("nickname", "Cliente ML")
-                                }
-                                
-                                try:
-                                    supabase.table("vendas").insert(payload_venda).execute()
-                                    vendas_salvas += 1
-                                except Exception as db_error:
-                                    st.error(f"Erro do Supabase ao salvar pedido {order_id}: {db_error}")
-                                    
-                            st.success(f"Tentativa concluída. Vendas salvas: {vendas_salvas}")
+                            if len(orders_list) > 0:
+                                st.success(f"Sucesso! {vendas_salvas} vendas foram registradas no ERP.")
+                            else:
+                                st.warning("A API do Mercado Libre confirmou que esta conta possui 0 vendas registradas no momento.")
                         else:
                             st.error(f"Erro ao buscar pedidos: {orders_resp.text}")
 
