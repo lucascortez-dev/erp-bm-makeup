@@ -483,41 +483,52 @@ elif menu == "Integracao ML":
             </div>
         """, unsafe_allow_html=True)
 
-   # Captura o código de retorno enviado pelo Mercado Livre com trava anti-loop
+  # Captura e processa o código de retorno do Mercado Libre com diagnóstico visual
 query_params = st.query_params
-if "code" in query_params and not st.session_state.get("code_processed", False):
-    st.session_state["code_processed"] = True
+if "code" in query_params:
     auth_code = query_params["code"]
     
+    st.info(f"🔄 Código de autorização capturado com sucesso! Trocando por tokens...")
+
     # Troca o código temporário pelo Access Token definitivo
     token_url = "https://api.mercadolibre.com/oauth/token"
     payload = {
         "grant_type": "authorization_code",
-    "client_id": ML_APP_ID,
+        "client_id": ML_APP_ID,
         "client_secret": ML_CLIENT_SECRET,
         "code": auth_code,
         "redirect_uri": ML_REDIRECT_URI
     }
     
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    
     try:
         response = requests.post(token_url, data=payload, headers=headers)
+        
+        # Mostra na tela o que a API do Mercado Livre respondeu
+        st.write(f"Status da API do ML: `{response.status_code}`")
         
         if response.status_code == 200:
             token_json = response.json()
             access_token = token_json.get("access_token")
             refresh_token = token_json.get("refresh_token")
             
-            # Salva os tokens de forma segura no Supabase
-            supabase.table("ml_tokens").insert({
-                "access_token": access_token,
-                "refresh_token": refresh_token
-            }).execute()
-            
-            st.success("Conta conectada e tokens salvos com sucesso!")
-            st.query_params.clear()
-            st.rerun()
+            # Tenta salvar no Supabase
+            try:
+                supabase.table("ml_tokens").insert({
+                    "access_token": access_token,
+                    "refresh_token": refresh_token
+                }).execute()
+                
+                st.success("🎉 Conta conectada e tokens salvos no Supabase com sucesso!")
+                st.query_params.clear()
+                st.rerun()
+            except Exception as db_err:
+                st.error(f"Erro ao salvar no Supabase (verifique se a tabela 'ml_tokens' existe e tem as colunas corretas): {db_err}")
         else:
-            st.error(f"Erro ao autenticar com o Mercado Livre: {response.text}")
+            # Se o ML recusar, mostra o erro exato retornado por eles (ex: redirect_uri_mismatch)
+            st.error(f"⚠️ O Mercado Libre recusou a troca do token: {response.text}")
+            st.warning(f"Dica: Verifique se o ML_REDIRECT_URI (`{ML_REDIRECT_URI}`) está idêntico ao cadastrado no painel de desenvolvedor do Mercado Livre.")
+            
     except Exception as e:
-        st.error(f"Erro de conexão na requisição do token: {e}")
+        st.error(f"Erro de conexão HTTP com a API do Mercado Libre: {e}")
