@@ -467,7 +467,7 @@ elif menu == "Integracao ML":
         access_token = tokens_data[0].get("access_token")
         
         st.markdown("---")
-        st.subheader("🔄 Sincronização com Diagnóstico de Erro")
+        st.subheader("🔄 Sincronização Definitiva com o ERP")
 
         col_sync1, col_sync2 = st.columns(2)
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -476,8 +476,8 @@ elif menu == "Integracao ML":
         # 1. SINCRONIZAÇÃO DE PRODUTOS
         # -------------------------------------------------------------
         with col_sync1:
-            if st.button("📦 Sincronizar Produtos (Com Log)", use_container_width=True):
-                with st.spinner("Sincronizando..."):
+            if st.button("📦 Sincronizar Produtos", use_container_width=True):
+                with st.spinner("Sincronizando produtos..."):
                     user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
                     if user_resp.status_code == 200:
                         user_id = user_resp.json().get("id")
@@ -485,32 +485,82 @@ elif menu == "Integracao ML":
                         
                         if items_resp.status_code == 200:
                             item_ids = items_resp.json().get("results", [])
-                            st.write(f"Total de IDs na API do ML: {len(item_ids)}")
                             produtos_salvos = 0
                             
-                            for item_id in item_ids[:5]: # Testa com os 5 primeiros para ver o log
+                            for item_id in item_ids:
                                 detail_resp = requests.get(f"https://api.mercadolibre.com/items/{item_id}", headers=headers)
                                 if detail_resp.status_code == 200:
                                     prod = detail_resp.json()
                                     
+                                    # Payload ajustado apenas com as colunas reais da tabela produtos
                                     payload_prod = {
                                         "ml_id": prod.get("id"),
                                         "titulo": prod.get("title"),
                                         "preco": prod.get("price", 0.0),
-                                        "estoque": prod.get("available_quantity", 0),
-                                        "link": prod.get("permalink")
+                                        "estoque": prod.get("available_quantity", 0)
                                     }
                                     
                                     try:
                                         supabase.table("produtos").insert(payload_prod).execute()
                                         produtos_salvos += 1
-                                    except Exception as db_error:
-                                        st.error(f"Erro do Supabase ao salvar produto {item_id}: {db_error}")
-                                        
-                            st.success(f"Tentativa concluída. Produtos salvos com sucesso nesta amostra: {produtos_salvos}")
+                                    except Exception:
+                                        try:
+                                            supabase.table("produtos").update({
+                                                "titulo": prod.get("title"),
+                                                "preco": prod.get("price", 0.0),
+                                                "estoque": prod.get("available_quantity", 0)
+                                            }).eq("ml_id", prod.get("id")).execute()
+                                            produtos_salvos += 1
+                                        except Exception:
+                                            pass
+                                            
+                            st.success(f"Sucesso! {produtos_salvos} produtos foram sincronizados no ERP.")
                         else:
                             st.error(f"Erro ao buscar itens: {items_resp.text}")
 
+        # -------------------------------------------------------------
+        # 2. SINCRONIZAÇÃO DE VENDAS
+        # -------------------------------------------------------------
+        with col_sync2:
+            if st.button("🛒 Sincronizar Vendas", use_container_width=True):
+                with st.spinner("Sincronizando vendas..."):
+                    user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
+                    if user_resp.status_code == 200:
+                        user_id = user_resp.json().get("id")
+                        orders_resp = requests.get(f"https://api.mercadolibre.com/orders/search?seller={user_id}", headers=headers)
+                        
+                        if orders_resp.status_code == 200:
+                            orders_list = orders_resp.json().get("results", [])
+                            vendas_salvas = 0
+                            
+                            for order in orders_list:
+                                order_id = str(order.get("id"))
+                                
+                                # Payload ajustado apenas com as colunas reais da tabela vendas
+                                payload_venda = {
+                                    "order_id": order_id,
+                                    "valor_total": order.get("total_amount", 0.0),
+                                    "status": order.get("status", "desconhecido"),
+                                    "data_venda": order.get("date_closed")
+                                }
+                                
+                                try:
+                                    supabase.table("vendas").insert(payload_venda).execute()
+                                    vendas_salvas += 1
+                                except Exception:
+                                    try:
+                                        supabase.table("vendas").update({
+                                            "valor_total": order.get("total_amount", 0.0),
+                                            "status": order.get("status", "desconhecido"),
+                                            "data_venda": order.get("date_closed")
+                                        }).eq("order_id", order_id).execute()
+                                        vendas_salvas += 1
+                                    except Exception:
+                                        pass
+                                        
+                            st.success(f"Sucesso! {vendas_salvas} vendas foram registradas no ERP.")
+                        else:
+                            st.error(f"Erro ao buscar pedidos: {orders_resp.text}")
         # -------------------------------------------------------------
         # 2. SINCRONIZAÇÃO DE VENDAS
         # -------------------------------------------------------------
