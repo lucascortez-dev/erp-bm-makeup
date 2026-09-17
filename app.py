@@ -472,14 +472,15 @@ elif menu == "🔌 Integração Mercado Livre":
         # URL de Autenticação Oficial
         ml_auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={ML_APP_ID}&redirect_uri={ML_REDIRECT_URI}"
 
+        # Botão estilizado via HTML seguro com target='_blank' (Abre em nova aba sem conflito)
         st.markdown(f"""
-            <br>
-            <a href="{ml_auth_url}" target="_self">
-                <button style="background-color:#ffe600; color:#2d3277; padding:12px 24px; border:none; border-radius:5px; font-weight:bold; font-size:16px; cursor:pointer;">
-                    Conectar Conta do Mercado Livre
-                </button>
-            </a>
-            <br><br>
+            <div style="margin-top: 20px; margin-bottom: 20px;">
+                <a href="{ml_auth_url}" target="_blank" style="text-decoration: none;">
+                    <button style="background-color:#ffe600; color:#2d3277; padding:12px 24px; border:none; border-radius:5px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
+                        Conectar Conta do Mercado Livre 🔗
+                    </button>
+                </a>
+            </div>
         """, unsafe_allow_html=True)
 
     # Captura o código de retorno enviado pelo Mercado Livre após a autorização
