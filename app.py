@@ -460,14 +460,73 @@ elif menu == "Integracao ML":
     is_connected = len(tokens_data) > 0
 
     if is_connected:
-        st.success("🟢 STATUS: Conectado ao Mercado Livre com Sucesso!")
+        st.success("STATUS: Conectado ao Mercado Livre com Sucesso!")
         st.write("Seu ERP está pronto para sincronizar dados e ler o catálogo com total segurança.")
-        if st.button("Desconectar Conta"):
+        
+        # Pega o access_token salvo no Supabase
+        access_token = tokens_data[0].get("access_token")
+        
+        st.markdown("---")
+        st.subheader("🔄 Sincronização de Dados")
+        
+        col_sync1, col_sync2 = st.columns(2)
+        
+        with col_sync1:
+            if st.button("📥 Puxar Produtos do Mercado Livre", use_container_width=True):
+                headers = {"Authorization": f"Bearer {access_token}"}
+                
+                # 1. Descobre o ID do usuário logado no ML
+                user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
+                if user_resp.status_code == 200:
+                    user_id = user_resp.json().get("id")
+                    
+                    # 2. Busca os IDs dos produtos do vendedor
+                    items_resp = requests.get(f"https://api.mercadolibre.com/users/{user_id}/items/search", headers=headers)
+                    if items_resp.status_code == 200:
+                        item_ids = items_resp.json().get("results", [])
+                        st.success(f"Sucesso! Encontrados {len(item_ids)} produtos no seu Mercado Livre.")
+                        
+                        # Exemplo de listagem dos primeiros produtos encontrados
+                        if item_ids:
+                            st.write("### Catálogo Encontrado:")
+                            for item_id in item_ids[:5]: # Mostra os primeiros 5
+                                detail_resp = requests.get(f"https://api.mercadolibre.com/items/{item_id}", headers=headers)
+                                if detail_resp.status_code == 200:
+                                    prod = detail_resp.json()
+                                    st.write(f"- **{prod.get('title')}** | Preço: R$ {prod.get('price')} | Estoque: {prod.get('available_quantity')}")
+                    else:
+                        st.error(f"Erro ao buscar itens: {items_resp.text}")
+                else:
+                    st.error(f"Erro ao identificar usuário do ML: {user_resp.text}")
+
+        with col_sync2:
+            if st.button("🛒 Puxar Vendas Recentes", use_container_width=True):
+                headers = {"Authorization": f"Bearer {access_token}"}
+                user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
+                
+                if user_resp.status_code == 200:
+                    user_id = user_resp.json().get("id")
+                    
+                    # Busca pedidos/vendas do vendedor
+                    orders_resp = requests.get(f"https://api.mercadolibre.com/orders/search?seller={user_id}", headers=headers)
+                    if orders_resp.status_code == 200:
+                        orders = orders_resp.json().get("results", [])
+                        st.success(f"Sucesso! Encontradas {len(orders)} vendas recentes.")
+                        
+                        if orders:
+                            st.write("### Últimas Vendas:")
+                            for order in orders[:5]:
+                                order_id = order.get("id")
+                                total = order.get("total_amount")
+                                status = order.get("status")
+                                st.write(f"- **Pedido #{order_id}** | Status: `{status}` | Valor: R$ {total}")
+                    else:
+                        st.error(f"Erro ao buscar pedidos: {orders_resp.text}")
+
+        st.markdown("---")
+        if st.button("Desconectar Conta", type="secondary"):
             supabase.table("ml_tokens").delete().neq("id", 0).execute()
             st.rerun()
-    else:
-        st.warning("🟡 STATUS: Desconectado. Nenhuma credencial encontrada.")
-        st.write("Para iniciar, clique no botão abaixo para abrir a página de autorização do Mercado Livre.")
 
        # URL de Autenticação Oficial (Confirme se o endereço base é o do Mercado Libre)
         ml_auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={ML_APP_ID}&redirect_uri={ML_REDIRECT_URI}"
