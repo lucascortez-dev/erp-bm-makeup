@@ -670,15 +670,15 @@ if "code" in query_params:
 
                 # Aqui está o bloco que faltava, agora preenchido com a lógica real!
                 if st.button("Gerar Token de Acesso"):
-                if codigo_url:
+                    if codigo_url:
                 # Extrai apenas o código, caso o usuário cole a URL inteira
-                if "code=" in codigo_url:
-                code = codigo_url.split("code=")[1].split("&")[0]
-            else:
-                code = codigo_url.strip()
+                        if "code=" in codigo_url:
+                        code = codigo_url.split("code=")[1].split("&")[0]
+                  else:
+                        code = codigo_url.strip()
                 
-            with st.spinner("Gerando chave de acesso..."):
-                token_url = "https://api.mercadolivre.com/oauth/token"
+                  with st.spinner("Gerando chave de acesso..."):
+                           token_url = "https://api.mercadolivre.com/oauth/token"
                 payload = {
                     "grant_type": "authorization_code",
                     "client_id": APP_ID,
