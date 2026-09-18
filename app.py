@@ -452,25 +452,20 @@ elif menu == "Integracao ML":
 
    # Verifica se existe token no banco
 tokens_data = supabase.table("ml_tokens").select("*").execute().data
-is_connected = len(tokens_data) > 0
+    is_connected = len(tokens_data) > 0
 
-if is_connected:
-        st.success("STATUS: Conectado ao Mercado Livre com Sucesso!")
-        st.write("Seu ERP está pronto para sincronizar dados e ler o catálogo com total segurança.")
-        
-        # Pega o access_token salvo no Supabase
-        access_token = tokens_data[0].get("access_token")
+    if is_connected:
+        st.success("✅ STATUS: Conectado ao Mercado Livre com Sucesso!")
+        access_token = tokens_data[0]["access_token"]
         
         st.markdown("---")
         st.subheader("🔄 Sincronização de Catálogo e Financeiro")
-        st.write("O ERP atua como espelho do Mercado Livre. O estoque e o financeiro são calculados com base nos dados reais da plataforma.")
+        st.write("O ERP atua como espelho do Mercado Livre. O estoque e financeiro são baseados na plataforma.")
 
         col_sync1, col_sync2 = st.columns(2)
         headers = {"Authorization": f"Bearer {access_token}"}
         
-        # -------------------------------------------------------------
         # 1. ESPELHAMENTO DE PRODUTOS E ESTOQUE
-        # -------------------------------------------------------------
         with col_sync1:
             if st.button("📦 Puxar Estoque Atualizado (ML)", use_container_width=True):
                 with st.spinner("Lendo catálogo do Mercado Livre..."):
@@ -487,42 +482,33 @@ if is_connected:
                                 detail_resp = requests.get(f"https://api.mercadolibre.com/items/{item_id}", headers=headers)
                                 if detail_resp.status_code == 200:
                                     prod = detail_resp.json()
-                                    
-                                    # Busca o SKU no anúncio do ML
                                     sku_val = prod.get("seller_custom_field")
                                     if not sku_val:
                                         for attr in prod.get("attributes", []):
                                             if attr.get("id") == "SELLER_SKU":
                                                 sku_val = attr.get("value_name")
                                                 break
-                                    
-                                    # Se o anúncio não tiver SKU, usa o código MLB
                                     if not sku_val:
                                         sku_val = str(prod.get("id"))
                                     
-                                    # Preenche apenas as colunas exatas da tabela de produtos
                                     payload_prod = {
                                         "sku": str(sku_val),
                                         "produto": str(prod.get("title", "")),
                                         "preco_venda": float(prod.get("price", 0.0)),
                                         "estoque": int(prod.get("available_quantity", 0))
                                     }
-                                    
                                     try:
                                         supabase.table("produtos").upsert(payload_prod, on_conflict="sku").execute()
                                         produtos_salvos += 1
                                     except Exception as err:
                                         st.error(f"Erro ao salvar produto {sku_val}: {err}")
-                                            
-                            st.success(f"Catálogo espelhado! {produtos_salvos} produtos com estoque e preços atualizados.")
+                            st.success(f"Catálogo espelhado! {produtos_salvos} produtos atualizados.")
                         else:
                             st.error(f"Erro ao buscar catálogo: {items_resp.text}")
                     else:
-                        st.error(f"Erro de usuário: {user_resp.text}")
+                        st.error("Erro de usuário. Token pode estar inválido.")
 
-        # -------------------------------------------------------------
-        # 2. REGISTRO DE VENDAS (ITEM A ITEM)
-        # -------------------------------------------------------------
+        # 2. REGISTRO DE VENDAS
         with col_sync2:
             if st.button("🛒 Puxar Vendas e Taxas (ML)", use_container_width=True):
                 with st.spinner("Processando financeiro item a item..."):
@@ -538,8 +524,6 @@ if is_connected:
                             for order in orders_list:
                                 order_id = str(order.get("id"))
                                 data_venda = str(order.get("date_closed") or order.get("date_created", ""))
-                                
-                                # Extração do Frete e Pagamento (do pedido inteiro)
                                 custo_frete = 0.0
                                 metodo_pagamento = str(order.get("status", "pago"))
                                 payments = order.get("payments", [])
@@ -547,23 +531,17 @@ if is_connected:
                                     custo_frete = float(payments[0].get("shipping_cost", 0.0))
                                     metodo_pagamento = str(payments[0].get("payment_method_id", metodo_pagamento))
                                 
-                                # Varre CADA PRODUTO DENTRO DO PEDIDO para salvar item a item
                                 order_items = order.get("order_items", [])
                                 for idx, item in enumerate(order_items):
-                                    
-                                    # Se houver mais de 1 produto diferente no carrinho, cria IDs tipo "2000-0", "2000-1"
                                     item_bd_id = f"{order_id}-{idx}" if len(order_items) > 1 else order_id
-                                    
                                     sku_item = item.get("item", {}).get("seller_sku")
                                     if not sku_item:
                                         sku_item = str(item.get("item", {}).get("id", ""))
-                                        
                                     produto_nome = str(item.get("item", {}).get("title", ""))
                                     preco_unit = float(item.get("unit_price", 0.0))
                                     quantidade = int(item.get("quantity", 1))
                                     taxa_ml = float(item.get("sale_fee", 0.0))
                                     
-                                    # Payload milimétrico para as colunas exatas da public.vendas
                                     payload_venda = {
                                         "id": item_bd_id,
                                         "data": data_venda,
@@ -576,135 +554,72 @@ if is_connected:
                                         "frete": custo_frete,
                                         "quantidade": quantidade
                                     }
-                                    
                                     try:
-                                        # Pressupõe que a coluna 'id' seja a Primary Key
                                         supabase.table("vendas").upsert(payload_venda, on_conflict="id").execute()
                                         itens_salvos += 1
                                     except Exception as err:
-                                        st.error(f"Erro ao salvar o item {sku_item} da venda {order_id}: {err}")
-                                        
-                            st.success(f"Financeiro sincronizado! {itens_salvos} itens vendidos registrados no ERP.")
+                                        st.error(f"Erro ao salvar item {sku_item}: {err}")
+                            st.success(f"Financeiro sincronizado! {itens_salvos} itens registrados.")
                         else:
                             st.error(f"Erro ao buscar histórico: {orders_resp.text}")
                     else:
-                        st.error(f"Erro de usuário: {user_resp.text}")
-
+                        st.error("Erro de usuário. Token pode estar inválido.")
+                        
         st.markdown("---")
-        if st.button("Desconectar Conta", type="secondary"):
-            supabase.table("ml_tokens").delete().neq("id", 0).execute()
+        if st.button("Desconectar Conta (Sair)"):
+            supabase.table("ml_tokens").delete().eq("id", 1).execute()
             st.rerun()
 
-       # URL de Autenticação Oficial (Confirme se o endereço base é o do Mercado Libre)
-        ml_auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={ML_APP_ID}&redirect_uri={ML_REDIRECT_URI}"
-
-       # 🔍 LINHA DE DIAGNÓSTICO TEMPORÁRIA:
-        st.code(ml_auth_url)
-
-        # Botão estilizado abrindo a URL correta em nova aba
-        st.markdown(f"""
-            <div style="margin-top: 20px; margin-bottom: 20px;">
-                <a href="{ml_auth_url}" target="_blank" style="text-decoration: none;">
-                    <button style="background-color:#ffe600; color:#2d3277; padding:12px 24px; border:none; border-radius:5px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-                        Conectar Conta do Mercado Livre 🔗
-                    </button>
-                </a>
-            </div>
-        """, unsafe_allow_html=True)
-
-  # Captura e processa o código de retorno do Mercado Libre com diagnóstico visual
-query_params = st.query_params
-if "code" in query_params:
-    auth_code = query_params["code"]
-    
-    st.info(f"🔄 Código de autorização capturado com sucesso! Trocando por tokens...")
-
-    # Troca o código temporário pelo Access Token definitivo
-    token_url = "https://api.mercadolibre.com/oauth/token"
-    payload = {
-        "grant_type": "authorization_code",
-        "client_id": ML_APP_ID,
-        "client_secret": ML_CLIENT_SECRET,
-        "code": auth_code,
-        "redirect_uri": ML_REDIRECT_URI
-    }
-    
-    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-    
-    try:
-        response = requests.post(token_url, data=payload, headers=headers)
+    else:
+        st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
+        st.write("Por favor, autorize o aplicativo para continuar.")
         
-        # Mostra na tela o que a API do Mercado Livre respondeu
-        st.write(f"Status da API do ML: `{response.status_code}`")
+        APP_ID = st.secrets["ML_APP_ID"] 
+        CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
+        REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
         
-        if response.status_code == 200:
-            token_json = response.json()
-            access_token = token_json.get("access_token")
-            refresh_token = token_json.get("refresh_token")
-            
-            # Tenta salvar no Supabase
-            try:
-                supabase.table("ml_tokens").insert({
-                    "access_token": access_token,
-                    "refresh_token": refresh_token
-                }).execute()
-                
-                st.success("🎉 Conta conectada e tokens salvos no Supabase com sucesso!")
-                st.query_params.clear()
-                st.rerun()
-            except Exception as db_err:
-                st.error(f"Erro ao salvar no Supabase (verifique se a tabela 'ml_tokens' existe e tem as colunas corretas): {db_err}")
-        else:
-
-             st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
-             st.write("Por favor, autorize o aplicativo para continuar.")
-    
-             APP_ID = st.secrets["ML_APP_ID"] 
-             CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
-             REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
-    
-    auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
-    st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
-    
-    codigo_url = st.text_input("https://erp-bmakeup.streamlit.app")
-    
-    if st.button("Gerar Token de Acesso"):
-        if codigo_url:
-            if "code=" in codigo_url:
-                code = codigo_url.split("code=")[1].split("&")[0]
-            else:
-                code = codigo_url.strip()
-                
-            with st.spinner("Gerando chave de acesso..."):
-                token_url = "https://api.mercadolivre.com/oauth/token"
-                payload = {
-                    "grant_type": "authorization_code",
-                    "client_id": APP_ID,
-                    "client_secret": CLIENT_SECRET,
-                    "code": code,
-                    "redirect_uri": REDIRECT_URI
-                }
-                headers = {
-                    "accept": "application/json",
-                    "content-type": "application/x-www-form-urlencoded"
-                }
-                
-                response = requests.post(token_url, data=payload, headers=headers)
-                
-                if response.status_code == 200:
-                    token_data = response.json()
-                    access_token = token_data.get("access_token")
-                    refresh_token = token_data.get("refresh_token")
-                    
-                    supabase.table("ml_tokens").upsert({
-                        "id": 1, 
-                        "access_token": access_token, 
-                        "refresh_token": refresh_token
-                    }).execute()
-                    
-                    st.success("✅ Conectado com sucesso! Atualizando o sistema...")
-                    st.rerun()
+        auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
+        st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
+        
+        codigo_url = st.text_input("https://erp-bmakeup.streamlit.app")
+        
+        if st.button("Gerar Token de Acesso"):
+            if codigo_url:
+                if "code=" in codigo_url:
+                    code = codigo_url.split("code=")[1].split("&")[0]
                 else:
-                    st.error(f"Erro ao gerar token. Detalhes: {response.text}")
-        else:
-            st.warning("Por favor, cole a URL de retorno antes de clicar no botão.")
+                    code = codigo_url.strip()
+                    
+                with st.spinner("Gerando chave de acesso..."):
+                    token_url = "https://api.mercadolivre.com/oauth/token"
+                    payload = {
+                        "grant_type": "authorization_code",
+                        "client_id": APP_ID,
+                        "client_secret": CLIENT_SECRET,
+                        "code": code,
+                        "redirect_uri": REDIRECT_URI
+                    }
+                    headers = {
+                        "accept": "application/json",
+                        "content-type": "application/x-www-form-urlencoded"
+                    }
+                    
+                    response = requests.post(token_url, data=payload, headers=headers)
+                    
+                    if response.status_code == 200:
+                        token_data = response.json()
+                        access_token = token_data.get("access_token")
+                        refresh_token = token_data.get("refresh_token")
+                        
+                        supabase.table("ml_tokens").upsert({
+                            "id": 1, 
+                            "access_token": access_token, 
+                            "refresh_token": refresh_token
+                        }).execute()
+                        
+                        st.success("✅ Conectado com sucesso! Atualizando o sistema...")
+                        st.rerun()
+                    else:
+                        st.error(f"Erro ao gerar token. Detalhes: {response.text}")
+            else:
+                st.warning("Por favor, cole a URL de retorno antes de clicar no botão.")
