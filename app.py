@@ -655,30 +655,27 @@ if "code" in query_params:
             except Exception as db_err:
                 st.error(f"Erro ao salvar no Supabase (verifique se a tabela 'ml_tokens' existe e tem as colunas corretas): {db_err}")
         else:
-                st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
-                st.write("Por favor, autorize o aplicativo para continuar.")
+    st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
+    st.write("Por favor, autorize o aplicativo para continuar.")
     
-                # Substitua pelos nomes que você usou no seu st.secrets
-                APP_ID = st.secrets["ML_APP_ID"] 
-                CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
-                REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
+    APP_ID = st.secrets["ML_APP_ID"] 
+    CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
+    REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
     
-                auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
-                st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
+    auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
+    st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
     
-                codigo_url = st.text_input("Cole a URL de retorno aqui:")
-
-                # Aqui está o bloco que faltava, agora preenchido com a lógica real!
-                if st.button("Gerar Token de Acesso"):
-                    if codigo_url:
-                # Extrai apenas o código, caso o usuário cole a URL inteira
-                        if "code=" in codigo_url:
-                        code = codigo_url.split("code=")[1].split("&")[0]
-                  else:
-                        code = codigo_url.strip()
+    codigo_url = st.text_input("https://erp-bmakeup.streamlit.app")
+    
+    if st.button("Gerar Token de Acesso"):
+        if codigo_url:
+            if "code=" in codigo_url:
+                code = codigo_url.split("code=")[1].split("&")[0]
+            else:
+                code = codigo_url.strip()
                 
-                  with st.spinner("Gerando chave de acesso..."):
-                           token_url = "https://api.mercadolivre.com/oauth/token"
+            with st.spinner("Gerando chave de acesso..."):
+                token_url = "https://api.mercadolivre.com/oauth/token"
                 payload = {
                     "grant_type": "authorization_code",
                     "client_id": APP_ID,
@@ -698,7 +695,6 @@ if "code" in query_params:
                     access_token = token_data.get("access_token")
                     refresh_token = token_data.get("refresh_token")
                     
-                    # Salva os novos tokens na tabela do Supabase
                     supabase.table("ml_tokens").upsert({
                         "id": 1, 
                         "access_token": access_token, 
@@ -706,7 +702,7 @@ if "code" in query_params:
                     }).execute()
                     
                     st.success("✅ Conectado com sucesso! Atualizando o sistema...")
-                    st.rerun() # Recarrega a página automaticamente
+                    st.rerun()
                 else:
                     st.error(f"Erro ao gerar token. Detalhes: {response.text}")
         else:
