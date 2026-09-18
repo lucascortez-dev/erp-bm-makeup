@@ -450,17 +450,12 @@ elif menu == "Integracao ML":
         st.error(f"Erro ao carregar as chaves do Mercado Livre no st.secrets: {e}")
         st.stop()
 
-    # Verifica se já existe um token salvo no Supabase
-    try:
-        response = supabase.table("ml_tokens").select("*").execute()
-        tokens_data = response.data
-    except Exception:
-        tokens_data = []
+   # Verifica se existe token no banco
+tokens_data = supabase.table("ml_tokens").select("*").execute().data
+is_connected = len(tokens_data) > 0
 
-    is_connected = len(tokens_data) > 0
-
-    if is_connected:
-        st.success("STATUS: Conectado ao Mercado Livre com Sucesso!")
+if is_connected:
+    st.success("STATUS: Conectado ao Mercado Livre com Sucesso!")
         st.write("Seu ERP está pronto para sincronizar dados e ler o catálogo com total segurança.")
         
         # Pega o access_token salvo no Supabase
@@ -660,9 +655,17 @@ if "code" in query_params:
             except Exception as db_err:
                 st.error(f"Erro ao salvar no Supabase (verifique se a tabela 'ml_tokens' existe e tem as colunas corretas): {db_err}")
         else:
-            # Se o ML recusar, mostra o erro exato retornado por eles (ex: redirect_uri_mismatch)
-            st.error(f"⚠️ O Mercado Libre recusou a troca do token: {response.text}")
-            st.warning(f"Dica: Verifique se o ML_REDIRECT_URI (`{ML_REDIRECT_URI}`) está idêntico ao cadastrado no painel de desenvolvedor do Mercado Livre.")
-            
-    except Exception as e:
-        st.error(f"Erro de conexão HTTP com a API do Mercado Libre: {e}")
+    # SE NÃO ESTIVER CONECTADO, MOSTRA A TELA DE LOGIN
+    st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
+    st.write("Por favor, autorize o aplicativo para continuar.")
+    
+    # Aqui entra o seu código antigo de gerar a URL e pegar o "code"
+    APP_ID = "2353500314514448" # (Confira se está pegando do st.secrets)
+    REDIRECT_URI = "https://erp-bmakeup.streamlit.app"
+    
+    auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
+    st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
+    
+    codigo_url = st.text_input("https://erp-bmakeup.streamlit.app")
+    if st.button("Gerar Token de Acesso"):
+        # [ AQUI FICA A SUA LÓGICA DE TROCAR O CÓDIGO PELO TOKEN E SALVAR NO SUPABASE ]
