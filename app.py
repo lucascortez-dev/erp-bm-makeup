@@ -655,12 +655,13 @@ if "code" in query_params:
             except Exception as db_err:
                 st.error(f"Erro ao salvar no Supabase (verifique se a tabela 'ml_tokens' existe e tem as colunas corretas): {db_err}")
         else:
-    st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
-    st.write("Por favor, autorize o aplicativo para continuar.")
+
+             st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
+             st.write("Por favor, autorize o aplicativo para continuar.")
     
-    APP_ID = st.secrets["ML_APP_ID"] 
-    CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
-    REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
+             APP_ID = st.secrets["ML_APP_ID"] 
+             CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
+             REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
     
     auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
     st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
