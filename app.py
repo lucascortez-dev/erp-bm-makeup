@@ -655,26 +655,26 @@ if "code" in query_params:
             except Exception as db_err:
                 st.error(f"Erro ao salvar no Supabase (verifique se a tabela 'ml_tokens' existe e tem as colunas corretas): {db_err}")
         else:
-    		st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
-    		st.write("Por favor, autorize o aplicativo para continuar.")
+                st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
+                st.write("Por favor, autorize o aplicativo para continuar.")
     
-    		# Substitua pelos nomes que você usou no seu st.secrets
-    		APP_ID = st.secrets["ML_APP_ID"] 
-   		CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
-    		REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
+                # Substitua pelos nomes que você usou no seu st.secrets
+                APP_ID = st.secrets["ML_APP_ID"] 
+                CLIENT_SECRET = st.secrets["ML_CLIENT_SECRET"]
+                REDIRECT_URI = st.secrets["ML_REDIRECT_URI"]
     
-   		auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
-   		st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
+                auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
+                st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
     
-    		codigo_url = st.text_input("Cole a URL de retorno aqui:")
-    
-    		# Aqui está o bloco que faltava, agora preenchido com a lógica real!
-    		if st.button("Gerar Token de Acesso"):
-        	if codigo_url:
-            	# Extrai apenas o código, caso o usuário cole a URL inteira
-            	if "code=" in codigo_url:
+                codigo_url = st.text_input("Cole a URL de retorno aqui:")
+
+                # Aqui está o bloco que faltava, agora preenchido com a lógica real!
+                if st.button("Gerar Token de Acesso"):
+                if codigo_url:
+                # Extrai apenas o código, caso o usuário cole a URL inteira
+                if "code=" in codigo_url:
                 code = codigo_url.split("code=")[1].split("&")[0]
-            	else:
+            else:
                 code = codigo_url.strip()
                 
             with st.spinner("Gerando chave de acesso..."):
