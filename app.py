@@ -655,17 +655,17 @@ if "code" in query_params:
             except Exception as db_err:
                 st.error(f"Erro ao salvar no Supabase (verifique se a tabela 'ml_tokens' existe e tem as colunas corretas): {db_err}")
         else:
-    # SE NÃO ESTIVER CONECTADO, MOSTRA A TELA DE LOGIN
-    st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
-    st.write("Por favor, autorize o aplicativo para continuar.")
+             # SE NÃO ESTIVER CONECTADO, MOSTRA A TELA DE LOGIN
+             st.warning("⚠️ O ERP não está conectado ao Mercado Livre.")
+             st.write("Por favor, autorize o aplicativo para continuar.")
     
-    # Aqui entra o seu código antigo de gerar a URL e pegar o "code"
-    APP_ID = "2353500314514448" # (Confira se está pegando do st.secrets)
-    REDIRECT_URI = "https://erp-bmakeup.streamlit.app"
+             # Aqui entra o seu código antigo de gerar a URL e pegar o "code"
+             APP_ID = "2353500314514448" # (Confira se está pegando do st.secrets)
+             REDIRECT_URI = "https://erp-bmakeup.streamlit.app"
     
-    auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
-    st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
+             auth_url = f"https://auth.mercadolivre.com.br/authorization?response_type=code&client_id={APP_ID}&redirect_uri={REDIRECT_URI}"
+             st.markdown(f"[👉 **CLIQUE AQUI PARA CONECTAR AO MERCADO LIVRE**]({auth_url})")
     
-    codigo_url = st.text_input("https://erp-bmakeup.streamlit.app")
-    if st.button("Gerar Token de Acesso"):
-        # [ AQUI FICA A SUA LÓGICA DE TROCAR O CÓDIGO PELO TOKEN E SALVAR NO SUPABASE ]
+             codigo_url = st.text_input("https://erp-bmakeup.streamlit.app")
+             if st.button("Gerar Token de Acesso"):
+             # [ AQUI FICA A SUA LÓGICA DE TROCAR O CÓDIGO PELO TOKEN E SALVAR NO SUPABASE ]
