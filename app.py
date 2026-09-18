@@ -451,8 +451,8 @@ elif menu == "Integracao ML":
         st.stop()
 
    # Verifica se existe token no banco
-tokens_data = supabase.table("ml_tokens").select("*").execute().data
-    is_connected = len(tokens_data) > 0
+        tokens_data = supabase.table("ml_tokens").select("*").execute().data
+        is_connected = len(tokens_data) > 0
 
     if is_connected:
         st.success("✅ STATUS: Conectado ao Mercado Livre com Sucesso!")
