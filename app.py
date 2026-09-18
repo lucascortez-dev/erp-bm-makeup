@@ -467,17 +467,18 @@ elif menu == "Integracao ML":
         access_token = tokens_data[0].get("access_token")
         
         st.markdown("---")
-        st.subheader("🔄 Sincronização Definitiva com o ERP")
+        st.subheader("🔄 Sincronização de Catálogo e Financeiro")
+        st.write("O ERP atua como espelho do Mercado Livre. O estoque e o financeiro são calculados com base nos dados reais da plataforma.")
 
         col_sync1, col_sync2 = st.columns(2)
         headers = {"Authorization": f"Bearer {access_token}"}
         
         # -------------------------------------------------------------
-        # 1. SINCRONIZAÇÃO DE PRODUTOS
+        # 1. ESPELHAMENTO DE PRODUTOS E ESTOQUE
         # -------------------------------------------------------------
         with col_sync1:
-            if st.button("📦 Sincronizar Produtos", use_container_width=True):
-                with st.spinner("Sincronizando produtos..."):
+            if st.button("📦 Puxar Estoque Atualizado (ML)", use_container_width=True):
+                with st.spinner("Lendo catálogo do Mercado Livre..."):
                     user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
                     if user_resp.status_code == 200:
                         user_id = user_resp.json().get("id")
@@ -492,38 +493,44 @@ elif menu == "Integracao ML":
                                 if detail_resp.status_code == 200:
                                     prod = detail_resp.json()
                                     
-                                    # Payload alinhado exatamente com as colunas existentes em 'produtos'
+                                    # Busca o SKU no anúncio do ML
+                                    sku_val = prod.get("seller_custom_field")
+                                    if not sku_val:
+                                        for attr in prod.get("attributes", []):
+                                            if attr.get("id") == "SELLER_SKU":
+                                                sku_val = attr.get("value_name")
+                                                break
+                                    
+                                    # Se o anúncio não tiver SKU, usa o código MLB
+                                    if not sku_val:
+                                        sku_val = str(prod.get("id"))
+                                    
+                                    # Preenche apenas as colunas exatas da tabela de produtos
                                     payload_prod = {
-                                        "ml_id": str(prod.get("id")),
-                                        "titulo": str(prod.get("title", "")),
+                                        "sku": str(sku_val),
+                                        "produto": str(prod.get("title", "")),
+                                        "preco_venda": float(prod.get("price", 0.0)),
                                         "estoque": int(prod.get("available_quantity", 0))
                                     }
                                     
                                     try:
-                                        supabase.table("produtos").insert(payload_prod).execute()
+                                        supabase.table("produtos").upsert(payload_prod, on_conflict="sku").execute()
                                         produtos_salvos += 1
-                                    except Exception:
-                                        try:
-                                            supabase.table("produtos").update({
-                                                "titulo": str(prod.get("title", "")),
-                                                "estoque": int(prod.get("available_quantity", 0))
-                                            }).eq("ml_id", str(prod.get("id"))).execute()
-                                            produtos_salvos += 1
-                                        except Exception:
-                                            pass
+                                    except Exception as err:
+                                        st.error(f"Erro ao salvar produto {sku_val}: {err}")
                                             
-                            st.success(f"Sucesso! {produtos_salvos} produtos foram sincronizados no ERP.")
+                            st.success(f"Catálogo espelhado! {produtos_salvos} produtos com estoque e preços atualizados.")
                         else:
-                            st.error(f"Erro ao buscar itens: {items_resp.text}")
+                            st.error(f"Erro ao buscar catálogo: {items_resp.text}")
                     else:
-                        st.error(f"Erro ao identificar usuário: {user_resp.text}")
+                        st.error(f"Erro de usuário: {user_resp.text}")
 
         # -------------------------------------------------------------
-        # 2. SINCRONIZAÇÃO DE VENDAS
+        # 2. REGISTRO DE VENDAS (ITEM A ITEM)
         # -------------------------------------------------------------
         with col_sync2:
-            if st.button("🛒 Sincronizar Vendas", use_container_width=True):
-                with st.spinner("Sincronizando vendas..."):
+            if st.button("🛒 Puxar Vendas e Taxas (ML)", use_container_width=True):
+                with st.spinner("Processando financeiro item a item..."):
                     user_resp = requests.get("https://api.mercadolibre.com/users/me", headers=headers)
                     if user_resp.status_code == 200:
                         user_id = user_resp.json().get("id")
@@ -531,36 +538,62 @@ elif menu == "Integracao ML":
                         
                         if orders_resp.status_code == 200:
                             orders_list = orders_resp.json().get("results", [])
-                            vendas_salvas = 0
+                            itens_salvos = 0
                             
                             for order in orders_list:
                                 order_id = str(order.get("id"))
+                                data_venda = str(order.get("date_closed") or order.get("date_created", ""))
                                 
-                                # Payload alinhado exatamente com as colunas existentes em 'vendas'
-                                payload_venda = {
-                                    "order_id": order_id,
-                                    "valor_total": float(order.get("total_amount", 0.0)),
-                                    "status": str(order.get("status", "desconhecido"))
-                                }
+                                # Extração do Frete e Pagamento (do pedido inteiro)
+                                custo_frete = 0.0
+                                metodo_pagamento = str(order.get("status", "pago"))
+                                payments = order.get("payments", [])
+                                if payments:
+                                    custo_frete = float(payments[0].get("shipping_cost", 0.0))
+                                    metodo_pagamento = str(payments[0].get("payment_method_id", metodo_pagamento))
                                 
-                                try:
-                                    supabase.table("vendas").insert(payload_venda).execute()
-                                    vendas_salvas += 1
-                                except Exception:
-                                    try:
-                                        supabase.table("vendas").update({
-                                            "valor_total": float(order.get("total_amount", 0.0)),
-                                            "status": str(order.get("status", "desconhecido"))
-                                        }).eq("order_id", order_id).execute()
-                                        vendas_salvas += 1
-                                    except Exception:
-                                        pass
+                                # Varre CADA PRODUTO DENTRO DO PEDIDO para salvar item a item
+                                order_items = order.get("order_items", [])
+                                for idx, item in enumerate(order_items):
+                                    
+                                    # Se houver mais de 1 produto diferente no carrinho, cria IDs tipo "2000-0", "2000-1"
+                                    item_bd_id = f"{order_id}-{idx}" if len(order_items) > 1 else order_id
+                                    
+                                    sku_item = item.get("item", {}).get("seller_sku")
+                                    if not sku_item:
+                                        sku_item = str(item.get("item", {}).get("id", ""))
                                         
-                            st.success(f"Sucesso! {vendas_salvas} vendas foram registradas no ERP.")
+                                    produto_nome = str(item.get("item", {}).get("title", ""))
+                                    preco_unit = float(item.get("unit_price", 0.0))
+                                    quantidade = int(item.get("quantity", 1))
+                                    taxa_ml = float(item.get("sale_fee", 0.0))
+                                    
+                                    # Payload milimétrico para as colunas exatas da public.vendas
+                                    payload_venda = {
+                                        "id": item_bd_id,
+                                        "data": data_venda,
+                                        "sku": sku_item,
+                                        "produto": produto_nome,
+                                        "pagamento": metodo_pagamento,
+                                        "preco_unit": preco_unit,
+                                        "custo_unit": 0.0,
+                                        "taxa_ml": taxa_ml,
+                                        "frete": custo_frete,
+                                        "quantidade": quantidade
+                                    }
+                                    
+                                    try:
+                                        # Pressupõe que a coluna 'id' seja a Primary Key
+                                        supabase.table("vendas").upsert(payload_venda, on_conflict="id").execute()
+                                        itens_salvos += 1
+                                    except Exception as err:
+                                        st.error(f"Erro ao salvar o item {sku_item} da venda {order_id}: {err}")
+                                        
+                            st.success(f"Financeiro sincronizado! {itens_salvos} itens vendidos registrados no ERP.")
                         else:
-                            st.error(f"Erro ao buscar pedidos: {orders_resp.text}")
+                            st.error(f"Erro ao buscar histórico: {orders_resp.text}")
                     else:
-                        st.error(f"Erro ao identificar usuário: {user_resp.text}")
+                        st.error(f"Erro de usuário: {user_resp.text}")
 
         st.markdown("---")
         if st.button("Desconectar Conta", type="secondary"):
